@@ -21,10 +21,20 @@ const BACKGROUND_IMAGES = [
     src: "/imagen_campus6.webp",
     blur: "/imagen_campus6-mini.webp"
   },
-  { src: "/imagen_campus7.webp" },
-  { src: "/imagen_campus8.webp" },
-  { src: "/imagen_campus9.webp" },
+  { 
+    src: "/imagen_campus7.webp",
+    blur: "/imagen_campus7.webp"
+  },
+  { 
+    src: "/imagen_campus8.webp",
+    blur: "/imagen_campus8.webp"
+  },
+  { 
+    src: "/imagen_campus9.webp",
+    blur: "/imagen_campus9.webp"
+  },
 ];
+
 
 export default function HomePage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
