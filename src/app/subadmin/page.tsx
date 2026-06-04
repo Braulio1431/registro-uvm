@@ -9,235 +9,434 @@ type Registro = Record<string, any>;
 export default function AdminPanel() {
   const [data, setData] = useState<{ [k: string]: Registro[] }>({});
   const [mensaje, setMensaje] = useState('');
-  const [lugares, setLugares] = useState<{ [tabla: string]: { [id: string]: number } }>({});
-  const [filtrosLocales, setFiltrosLocales] = useState<{ [tabla: string]: { [columna: string]: string } }>({});
   const [filtro, setFiltro] = useState('todos');
+  const lugaresRef = React.useRef<{ [tabla: string]: { [id: string]: number } }>({});
   const router = useRouter();
 
   const obtenerCampoID = (tabla: string) => {
-    switch (String(tabla).toLowerCase()) {
-      case 'profesores':
-        return 'id_profesor';
-      case 'alumnosindividuales':
-      case 'individuales':
-        return 'id_alumno';
-      case 'alumnosequipo':
-      case 'equipo':
-        return 'id_alumno_equipo';
-      case 'equipos':
-        return 'id_equipo';
-      case 'subadministradores':
-        return 'id_subadmin';
-      default:
-        return 'id';
-    }
+    const map: Record<string, string> = {
+      profesores: 'id_profesor',
+      individuales: 'id_alumno',
+      equipo: 'id_alumno_equipo',
+      alumnos_equipo: 'id_alumno_equipo',
+      equipos: 'id_equipo',
+      subadministradores: 'id_subadmin',
+      profesores_designados: 'id_profesor_designado',
+      rubricas_cartel: 'id_rubrica',
+      participantes_cartel: 'id_participante',
+      carteles: 'id_cartel',
+    };
+    return map[tabla.toLowerCase()] || 'id';
   };
 
-  // Declaración por hoisting: evita problemas si useEffect se define antes.
-  async function cargar(tipo = 'todos') {
+  const cargar = async (tipo = 'todos') => {
     try {
-      const url = tipo === 'todos' ? '/api/registros' : `/api/registros?tipo=${encodeURIComponent(tipo)}`;
+      const url = tipo === 'todos' ? '/api/registros' : `/api/registros?tipo=${tipo}`;
       const res = await fetch(url);
       const json = await res.json();
-      if (res.ok) {
-        if (Array.isArray(json)) setData({ [tipo]: json });
-        else setData(json);
-        setMensaje('');
-      } else {
-        setMensaje(json.error || 'Error al cargar los registros');
-      }
-    } catch (err) {
-      console.error(err);
-      setMensaje('Error de conexión al cargar registros');
+      if (res.ok) setData(Array.isArray(json) ? { [tipo]: json } : json);
+      else setMensaje(json.error || 'Error al cargar registros');
+    } catch {
+      setMensaje('Error al conectar con el servidor');
     }
-  }
+  };
 
   useEffect(() => {
-    cargar(filtro);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    cargar('todos');
   }, []);
 
+  const cerrarSesion = () => router.push('/');
+
   const asignarLugar = (tabla: string, id: string | number, lugar: number) => {
-    setLugares(prev => ({
-      ...prev,
-      [tabla]: { ...prev[tabla], [String(id)]: lugar },
-    }));
+    if (!lugaresRef.current[tabla]) lugaresRef.current[tabla] = {};
+    lugaresRef.current[tabla][String(id)] = lugar;
   };
 
-  const imprimirReconocimiento = (tabla: string, r: Registro) => {
+  const imprimirReconocimiento = async (tabla: string, r: Registro) => {
     const idCampo = obtenerCampoID(tabla);
-    const idVal = r[idCampo] ?? r.id ?? r.id_equipo ?? r.id_alumno ?? r.id_profesor;
-    const lugar = lugares[tabla]?.[String(idVal)];
-    if (!lugar) {
-      alert('Selecciona un lugar antes de imprimir');
-      return;
+    const idVal = r[idCampo] ?? r.id;
+    const lugar = lugaresRef.current[tabla]?.[String(idVal)];
+    if (!lugar) return alert("Selecciona un lugar antes de imprimir");
+
+    const limpiar = (...v: any[]) =>
+      v.filter(x => x && x !== "null" && x !== "undefined" && x !== "").join(" ").trim();
+
+    let tituloCartel = "";
+    let programa = "";
+    let nombres = "";
+    let claveCartel = "";
+
+ let gradoMadurez = "Nivel 1";
+    if (claveCartel) {
+      const primeraCifra = claveCartel.trim()[0];
+      if (primeraCifra === "1") gradoMadurez = "Nivel 1";
+      else if (primeraCifra === "2") gradoMadurez = "Nivel 2";
+      else if (primeraCifra === "3") gradoMadurez = "Nivel 3";
+    }
+    if (tabla === "participantes_cartel") {
+      const cartel = (data.carteles || []).find(c => c.id_cartel === r.id_cartel);
+      if (cartel) {
+        tituloCartel = cartel.titulo || "";
+        programa = r.programa?.trim() || cartel.programa?.trim() || "";
+        claveCartel = cartel.clave_cartel || "";
+      }
+      nombres = [
+        limpiar(r.nombre_representante, r.apellido_paterno_representante, r.apellido_materno_representante),
+        limpiar(r.integrante1_nombre, r.integrante1_apellido_paterno, r.integrante1_apellido_materno),
+        limpiar(r.integrante2_nombre, r.integrante2_apellido_paterno, r.integrante2_apellido_materno),
+        limpiar(r.integrante3_nombre, r.integrante3_apellido_paterno, r.integrante3_apellido_materno),
+        limpiar(r.integrante4_nombre, r.integrante4_apellido_paterno, r.integrante4_apellido_materno)
+      ].filter(Boolean).join(", ");
     }
 
-    let nombres = '';
-    if (tabla === 'equipos') {
-      const alumnosEquipo = data.alumnosEquipo || data.equipo || data['alumnosEquipo'] || [];
-      const integrantes = (alumnosEquipo as Registro[]).filter(a => (a.id_equipo ?? a.id_alumno_equipo) === idVal);
-      nombres = integrantes.map(a => a.nombre).join(', ') || 'Sin integrantes';
-    } else {
-      nombres = r.nombre || '';
+    if (tabla === "carteles") {
+      tituloCartel = r.titulo || "";
+      programa = r.programa?.trim() || "";
+      claveCartel = r.clave_cartel || "";
+      const participantes = (data.participantes_cartel || []).filter(
+        p => p.id_cartel === r.id_cartel
+      );
+      if (participantes.length) {
+        nombres = participantes
+          .map(p => {
+            const items = [
+              limpiar(p.nombre_representante, p.apellido_paterno_representante, p.apellido_materno_representante),
+              limpiar(p.integrante1_nombre, p.integrante1_apellido_paterno, p.integrante1_apellido_materno),
+              limpiar(p.integrante2_nombre, p.integrante2_apellido_paterno, p.integrante2_apellido_materno),
+              limpiar(p.integrante3_nombre, p.integrante3_apellido_paterno, p.integrante3_apellido_materno),
+              limpiar(p.integrante4_nombre, p.integrante4_apellido_paterno, p.integrante4_apellido_materno),
+            ].filter(Boolean);
+            return items.join(", ");
+          })
+          .join(" — ");
+      }
     }
 
-    const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
+    const nombreMostrar = nombres || tituloCartel;
+  
 
+    const loadImg = async (src: string) => {
+      const res = await fetch(src);
+      const blob = await res.blob();
+      return new Promise(resolve => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.readAsDataURL(blob);
+      });
+    };
+
+    const fondo = await loadImg("/ReconocimientoUVM2.jpg");
     const img = new Image();
-    img.src = '/certificado.jpeg';
-    img.onload = () => {
-      try {
-        doc.addImage(img, 'JPEG', 0, 0, pageWidth, pageHeight);
-      } catch {}
-      doc.setTextColor(0, 0, 0);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(28);
-      doc.text(String(nombres), pageWidth / 2, 240, { align: 'center' });
-      doc.setDrawColor(150, 0, 0);
-      doc.setLineWidth(1.5);
-      doc.line(pageWidth / 2 - 200, 250, pageWidth / 2 + 200, 250);
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(14);
-      if (tabla !== 'equipos') doc.text(`Matrícula: ${r.matricula || 'N/A'}`, pageWidth / 2, 300, { align: 'center' });
-      doc.text(`Categoría: ${r.categoria || 'N/A'}`, pageWidth / 2, 320, { align: 'center' });
-      doc.text(`Campus: ${r.campus || 'N/A'}`, pageWidth / 2, 340, { align: 'center' });
-      doc.text(`Lugar obtenido: ${lugar}° Lugar`, pageWidth / 2, 360, { align: 'center' });
-      doc.setFontSize(16);
-      doc.setFont('helvetica', 'italic');
-      doc.text('Por su destacada participación y compromiso.', pageWidth / 2, 410, { align: 'center' });
-      doc.save(`Reconocimiento_${(r.nombre || 'participante').toString().replace(/\s+/g, '_')}.pdf`);
-    };
-    img.onerror = () => {
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(22);
-      doc.text('Reconocimiento', doc.internal.pageSize.getWidth() / 2, 80, { align: 'center' });
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(14);
-      doc.text(`Nombre: ${nombres}`, 40, 140);
-      if (tabla !== 'equipos') doc.text(`Matrícula: ${r.matricula || 'N/A'}`, 40, 160);
-      doc.text(`Categoría: ${r.categoria || 'N/A'}`, 40, 180);
-      doc.text(`Campus: ${r.campus || 'N/A'}`, 40, 200);
-      doc.text(`Lugar obtenido: ${lugar}° Lugar`, 40, 220);
-      doc.text('¡Felicidades por tu destacada participación!', 40, 260);
-      doc.save(`Reconocimiento_${(r.nombre || 'participante').toString().replace(/\s+/g, '_')}.pdf`);
-    };
+    img.src = fondo as string;
+    await new Promise(r => (img.onload = r));
+    const imgW = img.width;
+    const imgH = img.height;
+    const centerX = imgW * 0.57;
+
+    const doc = new jsPDF({
+      orientation: imgW > imgH ? "landscape" : "portrait",
+      unit: "px",
+      format: [imgW, imgH]
+    });
+
+    doc.addImage(fondo as string, "JPEG", 0, 0, imgW, imgH);
+    const yNombre = imgH * 0.460;
+    const yTexto = imgH * 0.535;
+    const maxWidth = imgW * 0.68;
+
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(110, 110, 110);
+    let fs = 88;
+    doc.setFontSize(fs);
+    while (fs > 32 && doc.getTextWidth(nombreMostrar) > maxWidth) {
+      fs -= 2;
+      doc.setFontSize(fs);
+    }
+    const nameLines = doc.splitTextToSize(nombreMostrar, maxWidth);
+    doc.text(nameLines, centerX, yNombre, { align: "center" });
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(40);
+    doc.setTextColor(90, 90, 90);
+
+    const texto = `Por su destacada participación en la 19° edición del Foro de Investigación C1-25, obteniendo el ${lugar}° Lugar de la vertical de ${programa}.`;
+    const textoLines = doc.splitTextToSize(texto, maxWidth);
+    doc.text(textoLines, centerX, yTexto, { align: "center" });
+
+    const safeName = nombreMostrar.replace(/[^\w]/g, "_");
+    doc.save(`Reconocimiento_${safeName}.pdf`);
   };
 
-  // Renderizador de tabla (sin acciones de editar/eliminar/agregar)
-  function TableRenderer({ rows, tipo }: { rows: Registro[]; tipo: string }) {
-    const headers = rows[0] ? Object.keys(rows[0]) : [];
-    const filtrosTabla = filtrosLocales[tipo] || {};
-    const filteredRows = (rows || []).filter(row =>
-      headers.every(h =>
-        !filtrosTabla[h] || String(row[h] ?? '').toLowerCase().includes((filtrosTabla[h] || '').toLowerCase())
+  const TableRenderer = ({ tipo, rows }: { tipo: string; rows: Registro[] }) => {
+    const [localRows, setLocalRows] = useState<Registro[]>(rows || []);
+    const [filtros, setFiltros] = useState<Record<string, string>>({});
+    const [refresh, setRefresh] = useState(0);
+
+    useEffect(() => setLocalRows(rows || []), [rows]);
+    const headers = localRows[0] ? Object.keys(localRows[0]) : [];
+
+    const filtrados = localRows.filter(r =>
+      Object.entries(filtros).every(([col, val]) =>
+        String(r[col] ?? '').toLowerCase().includes(val.toLowerCase())
       )
     );
 
-    if (!headers.length) {
-      return <div style={{ padding: 10, color: '#b00020', fontWeight: 600 }}>No hay registros</div>;
-    }
+    if (!headers.length) return <p style={{ color: '#000' }}>No hay registros.</p>;
 
+     if (tipo === "rubricas_cartel") {
+  filtrados.sort((a, b) => {
+    const pa = parseFloat(a.promedio || a.Promedio || 0);
+    const pb = parseFloat(b.promedio || b.Promedio || 0);
+    return pb - pa; // mayor a menor
+  });
+}
+
+if (tipo === "carteles") {
+  filtrados.sort((a, b) => {
+    const pa = parseFloat(a.promedio || a.Promedio || 0);
+    const pb = parseFloat(b.promedio || b.Promedio || 0);
+    return pb - pa; // mayor a menor
+  });
+}
     return (
-      <div style={{ overflowX: 'auto', marginBottom: 25 }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', borderRadius: 10, overflow: 'hidden', fontFamily: 'Arial, sans-serif', boxShadow: '0 4px 8px rgba(0,0,0,0.1)', backgroundColor: 'rgba(255,255,255,0.95)' }}>
-          <thead style={{ backgroundColor: '#b71c1c', color: '#fff' }}>
-            <tr>
-              {headers.map(h => <th key={h} style={{ padding: 10, border: '1px solid #a10f0f', textTransform: 'capitalize' }}>{h}</th>)}
-              <th style={{ padding: 10, border: '1px solid #a10f0f' }}>Resultados</th>
-              <th style={{ padding: 10, border: '1px solid #a10f0f' }}>Reconocimiento</th>
-            </tr>
-            <tr style={{ backgroundColor: '#fbe9e7' }}>
-              {headers.map(h => (
-                <th key={h}>
-                  <input type="text" placeholder="Filtrar..." value={filtrosTabla[h] || ''} onChange={e => setFiltrosLocales(prev => ({ ...prev, [tipo]: { ...prev[tipo], [h]: e.target.value } }))} style={{ width: '100%', padding: '4px 6px', border: '1px solid #b71c1c', borderRadius: 4, color: '#000', backgroundColor: '#fff', fontSize: '0.85em' }} />
-                </th>
-              ))}
-              <th></th>
-              <th></th>
-            </tr>
-          </thead>
-
-          <tbody>
-            {filteredRows.map((r, idx) => (
-              <tr key={idx} style={{ backgroundColor: idx % 2 === 0 ? '#fff' : '#f9f5f5' }}>
-                {headers.map((campo, i) => (
-                  <td key={i} style={{ border: '1px solid #ddd', padding: 8, color: '#000' }}>
-                    {String(r[campo] ?? '')}
-                  </td>
+      <div
+        style={{
+          background: 'rgba(255,255,255,0.9)',
+          backdropFilter: 'blur(6px)',
+          borderRadius: 12,
+          boxShadow: '0 4px 14px rgba(0,0,0,0.15)',
+          padding: 25,
+          marginBottom: 30,
+        }}
+      >
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', color: '#000' }}>
+            <thead style={{ background: '#b71c1c', color: '#fff' }}>
+              <tr>
+                {headers.map(h => (
+                  <th key={h} style={{ padding: '10px' }}>{h}</th>
                 ))}
-
-                <td style={{ border: '1px solid #ddd', padding: 8, textAlign: 'center' }}>
-                  {[1, 2, 3].map(n => {
-                    const idForBtn = r[obtenerCampoID(tipo)] ?? r.id ?? r.id_equipo ?? r.id_alumno ?? r.id_profesor;
-                    return (
-                      <button key={n} onClick={() => asignarLugar(tipo, idForBtn, n)} style={{ minWidth: 35, fontWeight: 600, margin: '0 2px', backgroundColor: lugares[tipo]?.[String(idForBtn)] === n ? '#b71c1c' : 'transparent', color: lugares[tipo]?.[String(idForBtn)] === n ? '#fff' : '#b71c1c', border: '1px solid #b71c1c', borderRadius: 4, cursor: 'pointer', padding: '4px 6px' }}>{n}</button>
-                    );
-                  })}
-                </td>
-
-                <td style={{ border: '1px solid #ddd', padding: 8, textAlign: 'center' }}>
-                  <button onClick={() => imprimirReconocimiento(tipo, r)} style={{ backgroundColor: '#b71c1c', color: '#fff', border: 'none', borderRadius: 4, padding: '6px 10px', cursor: 'pointer' }}>Imprimir</button>
-                </td>
+                <th style={{ padding: '10px' }}>Resultado</th>
+                <th style={{ padding: '10px' }}>Reconocimiento</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+              <tr style={{ background: '#f5f5f5' }}>
+                {headers.map(h => (
+                  <th key={h}>
+                    <input
+                      type="text"
+                      placeholder="Filtrar..."
+                      value={filtros[h] || ''}
+                      onChange={e => setFiltros({ ...filtros, [h]: e.target.value })}
+                      style={{
+                        width: '100%',
+                        border: '1px solid #ccc',
+                        borderRadius: 4,
+                        padding: 4,
+                        color: '#000',
+                      }}
+                    />
+                  </th>
+                ))}
+                <th></th><th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtrados.map((r, idx) => (
+                <tr
+                  key={idx}
+                  style={{
+                    borderBottom: '1px solid #ddd',
+                    background: idx % 2 === 0 ? '#fff' : '#f9f9f9',
+                    color: '#000',
+                  }}
+                >
+                  {headers.map(h => (
+                    <td key={h} style={{ padding: '6px' }}>{r[h]}</td>
+                  ))}
+                  <td>
+                    {[1, 2, 3].map(n => {
+                      const id = r[obtenerCampoID(tipo)] ?? r.id;
+                      return (
+                        <button
+                          key={n}
+                          onClick={() => {
+                            asignarLugar(tipo, id, n);
+                            setRefresh(prev => prev + 1);
+                          }}
+                          style={{
+                            margin: 2,
+                            background: lugaresRef.current[tipo]?.[String(id)] === n ? '#b71c1c' : 'transparent',
+                            color: lugaresRef.current[tipo]?.[String(id)] === n ? 'white' : '#b71c1c',
+                            border: '1px solid #b71c1c',
+                            borderRadius: 4,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          {n}
+                        </button>
+                      );
+                    })}
+                  </td>
+                  <td>
+                    <button
+                      onClick={() => imprimirReconocimiento(tipo, r)}
+                      style={{
+                        color: '#b71c1c',
+                        background: 'transparent',
+                        border: '1px solid #b71c1c',
+                        borderRadius: 4,
+                        padding: '2px 8px',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      🖨️
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     );
-  }
+  };
 
-  // UI principal (botones: Refrescar y Cerrar sesión — lo que pediste conservar)
   return (
-    <>
-      <div style={{ position: 'fixed' as const, top: 0, left: 0, width: '100vw', height: '100vh', backgroundImage: 'url(https://mir-s3-cdn-cf.behance.net/project_modules/fs/e04920100990617.5f15ce182ffd9.jpg)', backgroundSize: 'cover', backgroundRepeat: 'no-repeat', backgroundPosition: 'center', filter: 'brightness(0.7)', zIndex: -1 }}></div>
+    <div
+      style={{
+        backgroundImage:
+          'url(https://mir-s3-cdn-cf.behance.net/project_modules/1400/e04920100990617.5f15ce182ffd9.jpg)',
+        backgroundRepeat: 'no-repeat',
+        backgroundPosition: 'center',
+        backgroundSize: 'cover',
+        backgroundAttachment: 'fixed',
+        width: '100%',
+        minHeight: '100vh',
+        padding: '40px 20px',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'flex-start',
+      }}
+    >
+      <div
+        style={{
+          background: 'rgba(255, 255, 255, 0.9)',
+          backdropFilter: 'blur(10px)',
+          borderRadius: 16,
+          padding: '30px 40px',
+          maxWidth: 1300,
+          width: '100%',
+          boxShadow: '0 8px 30px rgba(0,0,0,0.15)',
+          color: '#000',
+        }}
+      >
+        <h2
+          style={{
+            textAlign: 'center',
+            color: '#b71c1c',
+            fontSize: 32,
+            fontWeight: 800,
+            marginBottom: 25,
+            textTransform: 'uppercase',
+            letterSpacing: '1px',
+          }}
+        >
+          Panel de Coordinadores
+        </h2>
 
-      <div style={{ maxWidth: 1200, margin: '50px auto', backgroundColor: '#fff', padding: 40, borderRadius: 12, boxShadow: '0 4px 15px rgba(0, 0, 0, 0.2)', zIndex: 2 }}>
-        <h2 style={{ color: 'black', textAlign: 'center', marginBottom: 20 }}>Panel de Sub-Coordinadores</h2>
-
-        {mensaje && <div style={{ backgroundColor: '#eaf4ff', padding: 10, borderRadius: 8, marginBottom: 12 }}>{mensaje}</div>}
-
-        <div style={{ marginBottom: 16, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-          <select value={filtro} onChange={e => { setFiltro(e.target.value); cargar(e.target.value); }} style={{ padding: '8px 12px', borderRadius: 6, border: '1px solid #b71c1c', background: '#fff', color: '#b71c1c', fontWeight: 500 }}>
-            <option value="todos">Mostrar todas las secciones</option>
-            <option value="profesores">Profesores</option>
-            <option value="individuales">Alumnos Individuales</option>
-            <option value="equipo">Alumnos con Equipo</option>
-            <option value="equipos">Equipos</option>
+        {/* === Barra === */}
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: 25,
+            background: 'rgba(250,250,250,0.95)',
+            borderRadius: 12,
+            padding: '20px 25px',
+            marginBottom: 35,
+            boxShadow: 'inset 0 0 8px rgba(0,0,0,0.05)',
+          }}
+        >
+          <select
+            value={filtro}
+            onChange={e => {
+              setFiltro(e.target.value);
+              cargar(e.target.value);
+            }}
+            style={{
+              padding: '10px 14px',
+              borderRadius: 8,
+              border: '1px solid #bdbdbd',
+              color: '#000',
+              background: '#fff',
+              cursor: 'pointer',
+              fontWeight: 500,
+            }}
+          >
+            <option value="todos">Mostrar todas</option>
+            <option value="profesores">Profesores responsables</option>
+            <option value="individuales">Alumnos Individuales para competencias</option>
+            <option value="equipo">Alumnos con Equipo para competencias</option>
+            <option value="equipos">Equipos para competencias</option>
             <option value="subadministradores">Subadministradores</option>
+            <option value="profesores_designados">Evaluadores de carteles</option>
+            <option value="rubricas_cartel">Puntuacion de las Rúbricas</option>
+            <option value="participantes_cartel">Participantes del Cartel</option>
+            <option value="carteles">Carteles registrados </option>
           </select>
 
-          <button onClick={() => cargar(filtro)} style={{ background: '#b71c1c', color: 'white', border: 'none', borderRadius: 6, padding: '8px 14px', fontWeight: 600, cursor: 'pointer' }}>Refrescar</button>
-
-          <button onClick={() => router.push('/alumno')} style={{ background: 'transparent', color: '#b71c1c', border: '1px solid #b71c1c', borderRadius: 6, padding: '8px 14px', fontWeight: 600, cursor: 'pointer' }}>Cerrar sesión</button>
+          <button
+            onClick={cerrarSesion}
+            style={{
+              background: 'none',
+              border: 'none',
+              fontWeight: 600,
+              textTransform: 'uppercase',
+              color: '#000',
+              cursor: 'pointer',
+              position: 'relative',
+              paddingBottom: 5,
+              transition: 'color 0.3s, border-bottom 0.3s',
+              borderBottom: '2px solid transparent',
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.color = '#b71c1c';
+              e.currentTarget.style.borderBottom = '2px solid #b71c1c';
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.color = '#000';
+              e.currentTarget.style.borderBottom = '2px solid transparent';
+            }}
+          >
+            Cerrar Sesión
+          </button>
         </div>
 
+        {/* === Tablas === */}
         {filtro === 'todos' ? (
-          <>
-            <h4 style={{ color: '#b71c1c', marginTop: 20 }}>Profesores</h4>
-            <TableRenderer rows={data.profesores || []} tipo="profesores" />
-
-            <h4 style={{ color: '#b71c1c', marginTop: 20 }}>Alumnos Individuales</h4>
-            <TableRenderer rows={data.individuales || data.alumnosIndividuales || []} tipo="individuales" />
-
-            <h4 style={{ color: '#b71c1c', marginTop: 20 }}>Alumnos con Equipo</h4>
-            <TableRenderer rows={data.equipo || data.alumnosEquipo || []} tipo="equipo" />
-
-            <h4 style={{ color: '#b71c1c', marginTop: 20 }}>Equipos</h4>
-            <TableRenderer rows={data.equipos || []} tipo="equipos" />
-
-            <h4 style={{ color: '#b71c1c', marginTop: 20 }}>Subadministradores</h4>
-            <TableRenderer rows={data.subadministradores || []} tipo="subadministradores" />
-          </>
+          Object.entries(data).map(([k, v]) => (
+            <div key={k}>
+              <h4
+                style={{
+                  color: '#b71c1c',
+                  margin: '30px 0 15px',
+                  fontSize: 20,
+                  fontWeight: 700,
+                  borderLeft: '6px solid #b71c1c',
+                  paddingLeft: 10,
+                }}
+              >
+                {k.replace(/_/g, ' ').toUpperCase()}
+              </h4>
+              <TableRenderer tipo={k} rows={v || []} />
+            </div>
+          ))
         ) : (
-          <>
-            <h4 style={{ color: '#b71c1c', textTransform: 'capitalize', marginTop: 20 }}>{filtro}</h4>
-            <TableRenderer rows={data[filtro] || []} tipo={filtro} />
-          </>
+          <TableRenderer tipo={filtro} rows={data[filtro] || []} />
         )}
       </div>
-    </>
+    </div>
   );
 }

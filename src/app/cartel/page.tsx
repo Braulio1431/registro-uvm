@@ -13,6 +13,7 @@ export default function RegistroCartel() {
   const [correoAsesor, setCorreoAsesor] = useState('');
   const [asignaturaRelacionada, setAsignaturaRelacionada] = useState('');
   const [esABP_ABI, setEsABP_ABI] = useState('');
+  const [nivelMadurez, setNivelMadurez] = useState(''); // ← NUEVO: estado para nivel de madurez
   const [participantes, setParticipantes] = useState(
     Array(5).fill({
       nombre: '',
@@ -51,8 +52,8 @@ export default function RegistroCartel() {
       left: 0,
       width: '100vw',
       height: '100vh',
-      backgroundImage:
-        'url(https://mir-s3-cdn-cf.behance.net/project_modules/fs/e04920100990617.5f15ce182ffd9.jpg)',
+     backgroundImage:
+        'url("https://mir-s3-cdn-cf.behance.net/project_modules/1400/e04920100990617.5f15ce182ffd9.jpg")',
       backgroundSize: 'cover',
       backgroundRepeat: 'no-repeat',
       backgroundPosition: 'center',
@@ -192,6 +193,7 @@ export default function RegistroCartel() {
         apellido_materno: i.apellidoMaterno ? i.apellidoMaterno.toUpperCase().trim() : null,
       })),
       semestres,
+      nivel_de_madurez: nivelMadurez, // ← NUEVO: se envía exactamente como lo espera el backend
     };
 
     try {
@@ -205,9 +207,9 @@ export default function RegistroCartel() {
 
       // Redirección en caso de registro exitoso
       if (res.ok) {
-  router.push('/registro-exitoso');
-  return;
-}
+        router.push('/registro-exitoso');
+        return;
+      }
 
       if (res.ok) {
         mostrarMensaje('Cartel registrado correctamente ✅');
@@ -318,6 +320,15 @@ export default function RegistroCartel() {
             <option value="">Seleccione</option>
             <option value="SÍ">SÍ</option>
             <option value="NO">NO</option>
+          </select>
+
+          {/* ← NUEVO CAMPO: Nivel de Madurez (obligatorio, igual que en el backend) */}
+          <label style={estilos.label}>Nivel de Madurez del Proyecto:</label>
+          <select style={estilos.input} value={nivelMadurez} onChange={(e) => setNivelMadurez(e.target.value)} required>
+            <option value="">Seleccione</option>
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
           </select>
         </div>
 

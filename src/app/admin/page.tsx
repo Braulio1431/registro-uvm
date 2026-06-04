@@ -15,27 +15,53 @@ export default function AdminPanel() {
 
   const obtenerCampoID = (tabla: string) => {
     const map: Record<string, string> = {
-      profesores: 'id_profesor',
-      individuales: 'id_alumno',
-      equipo: 'id_alumno_equipo',
-      alumnos_equipo: 'id_alumno_equipo',
-      equipos: 'id_equipo',
-      subadministradores: 'id_subadmin',
+      subadministradores: 'id',
       profesores_designados: 'id_profesor_designado',
       rubricas_cartel: 'id_rubrica',
       participantes_cartel: 'id_participante',
       carteles: 'id_cartel',
+      equipos: 'id_equipo',
+      maestros_login: 'id_maestro',
+      profesores_acompanantes: 'id_profesor',
+      categorias_competencia: 'id_categoria',
+      participantes: 'id_participante',
+      podio_design: 'id_calificacion',
+      visitas: 'id_visita',
+      profesores_jurado: 'id_jurado',
+      rubrica_incubadora: 'id_rubrica',
+      alumno_equipo: 'id_equipo',
+      microrubrica: 'id_microRubrica',
+      equiposmicro: 'id_equipoMicro',
+      profesoresmicro: 'id_profMicro',
+      
+      
     };
     return map[tabla.toLowerCase()] || 'id';
   };
 
+  const relatedTables: Record<string, string[]> = {
+    equiposmicro: ['microrubrica'],
+    alumno_equipo: ['rubrica_incubadora'],
+  };
+
   const cargar = async (tipo = 'todos') => {
     try {
-      const url = tipo === 'todos' ? '/api/registros' : `/api/registros?tipo=${tipo}`;
+      let tiposToLoad = [tipo];
+      if (relatedTables[tipo]) {
+        tiposToLoad = [...tiposToLoad, ...relatedTables[tipo]];
+      }
+      const url = tipo === 'todos' ? '/api/registros' : `/api/registros?tipo=${tiposToLoad.join(',')}`;
       const res = await fetch(url);
       const json = await res.json();
-      if (res.ok) setData(Array.isArray(json) ? { [tipo]: json } : json);
-      else setMensaje(json.error || 'Error al cargar registros');
+      if (res.ok) {
+        if (tipo !== 'todos') {
+          setData(prev => ({ ...prev, ...json }));
+        } else {
+          setData(json);
+        }
+      } else {
+        setMensaje(json.error || 'Error al cargar registros');
+      }
     } catch {
       setMensaje('Error al conectar con el servidor');
     }
@@ -56,7 +82,8 @@ export default function AdminPanel() {
   };
 
   const descargarCSV = () => {
-    const key = filtro === 'todos' ? 'profesores' : filtro;
+    if (filtro === 'todos') return alert('Selecciona una tabla para descargar');
+    const key = filtro;
     const rows = data[key] || [];
     if (!rows.length) return alert('No hay registros para descargar');
     const headers = Object.keys(rows[0]);
@@ -90,20 +117,36 @@ const imprimirReconocimiento = async (tabla: string, r: Registro) => {
 
   let tituloCartel = "";
   let programa = "";
+  let categoria = "";
   let nombres = "";
+  let nombreMostrar = "";
+  let texto = "";
 
-  // AGREGAR PROGRAMA A PARTICIPANTES_CARTEL
- if (tabla === "participantes_cartel") {
-  const cartel = (data.carteles || []).find(c => c.id_cartel === r.id_cartel);
+  // ================= CARTELES Y PARTICIPANTES_CARTEL =================
+  if (tabla === "participantes_cartel") {
+    const cartel = (data.carteles || []).find(c => c.id_cartel === r.id_cartel);
 
-  if (cartel) {
-    tituloCartel = cartel.titulo || "";
+    if (cartel) {
+      tituloCartel = cartel.titulo || "";
+    }
+
+    programa = r.programa?.trim() || "";
+
+    nombres = [
+      limpiar(r.nombre_representante, r.apellido_paterno_representante, r.apellido_materno_representante),
+      limpiar(r.integrante1_nombre, r.integrante1_apellido_paterno, r.integrante1_apellido_materno),
+      limpiar(r.integrante2_nombre, r.integrante2_apellido_paterno, r.integrante2_apellido_materno),
+      limpiar(r.integrante3_nombre, r.integrante3_apellido_paterno, r.integrante3_apellido_materno),
+      limpiar(r.integrante4_nombre, r.integrante4_apellido_paterno, r.integrante4_apellido_materno),
+    ]
+      .filter(Boolean)
+      .join(", ");
+
+    nombreMostrar = nombres || tituloCartel;
+
+    texto = `Por su destacada participación en la 19° edición del Foro de Investigación C1-25, obteniendo el ${lugar}° Lugar de la vertical de ${programa}.`;
   }
 
-  programa = r.programa?.trim() || "";
-}
-
-  // ================= CARTEL =================
   if (tabla === "carteles") {
     tituloCartel = r.titulo || "";
     programa = r.programa?.trim() || "";
@@ -126,29 +169,47 @@ const imprimirReconocimiento = async (tabla: string, r: Registro) => {
         })
         .join(" — ");
     }
+
+    nombreMostrar = nombres || tituloCartel;
+
+    texto = `Por su destacada participación en la 19° edición del Foro de Investigación C1-25, obteniendo el ${lugar}° Lugar de la vertical de ${programa}.`;
+  }
+
+  // ================= EQUIPOS =================
+  if (tabla === "equipos") {
+    nombreMostrar = r.nombre_equipo || "";
+
+    categoria = r.nombre_categoria || "";
+
+    texto = `Por su destacada participación en la 5° edición del Foro nacional de ingenierías, obteniendo el ${lugar}° Lugar de la categoria de ${categoria}.`;
   }
 
   // ================= PARTICIPANTES =================
-  if (tabla === "participantes_cartel") {
-    const cartel = (data.carteles || []).find(c => c.id_cartel === r.id_cartel);
+  if (tabla === "participantes") {
+    nombres = limpiar(r.nombre, r.apellido_paterno, r.apellido_materno);
 
-    if (cartel) {
-      tituloCartel = cartel.titulo || "";
-      programa = r.programa?.trim() || cartel.programa?.trim() || "";
-    }
+    nombreMostrar = nombres;
 
-    nombres = [
-      limpiar(r.nombre_representante, r.apellido_paterno_representante, r.apellido_materno_representante),
-      limpiar(r.integrante1_nombre, r.integrante1_apellido_paterno, r.integrante1_apellido_materno),
-      limpiar(r.integrante2_nombre, r.integrante2_apellido_paterno, r.integrante2_apellido_materno),
-      limpiar(r.integrante3_nombre, r.integrante3_apellido_paterno, r.integrante3_apellido_materno),
-      limpiar(r.integrante4_nombre, r.integrante4_apellido_paterno, r.integrante4_apellido_materno),
-    ]
-      .filter(Boolean)
-      .join(", ");
+    categoria = r.nombre_categoria || "";
+
+    texto = `Por su destacada participación en la 5° edición del Foro nacional de ingenierías, obteniendo el ${lugar}° Lugar de la categoria de ${categoria}.`;
   }
 
-  const nombreMostrar = nombres || tituloCartel;
+  // ================= ALUMNO_EQUIPO =================
+  if (tabla === "alumno_equipo") {
+    nombreMostrar = r.nombre_proyecto || "";
+
+    const lugaresTexto = ["", "PRIMER", "SEGUNDO", "TERCER"];
+    texto = `Por obtener el ${lugaresTexto[lugar]} LUGAR del Programa "Incubadoras de Emprendimiento del Instituto de la Juventud del Municipio de Puebla - 2025".`;
+  }
+
+  // ================= EQUIPOSMICRO =================
+  if (tabla === "equiposmicro") {
+    nombreMostrar = r.nombre_proyecto || "";
+
+    const lugaresTexto = ["", "PRIMER", "SEGUNDO", "TERCER"];
+    texto = `Por obtener el ${lugaresTexto[lugar]} LUGAR en la Exposición de Carteles de Microeconomía para el "19vo Foro de investigación UVM".`;
+  }
 
   // ================= IMAGEN =================
   const loadImg = async (src: string) => {
@@ -161,7 +222,7 @@ const imprimirReconocimiento = async (tabla: string, r: Registro) => {
     });
   };
 
-  const fondo = await loadImg("/ReconocimientoUVM2.jpg");
+  const fondo = await loadImg("/ReconocimientoUVMmicro.jpg");
 
   const img = new Image();
   img.src = fondo as string;
@@ -181,13 +242,13 @@ const imprimirReconocimiento = async (tabla: string, r: Registro) => {
 
   // ================= COORDENADAS =================
   const yNombre = imgH * 0.460;
-  const yTexto = imgH * 0.595;
+  const yTexto = imgH * 0.54;
 
   // ================= NOMBRE =================
   doc.setFont("helvetica", "bold");
   doc.setTextColor(110, 110, 110); 
 
-  let fs = 88; // más grande
+  let fs = 150; // más grande
   const maxWidth = imgW * 0.68;
 
   doc.setFontSize(fs);
@@ -201,10 +262,8 @@ const imprimirReconocimiento = async (tabla: string, r: Registro) => {
 
   // ================= TEXTO FINAL =================
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(40); 
+  doc.setFontSize(90); 
   doc.setTextColor(90, 90, 90);
-
-  const texto = `Por su destacada participación en la 19° edición del Foro de Investigación C1-25, obteniendo el ${lugar}° Lugar de la vertical de ${programa}.`;
 
   const textoLines = doc.splitTextToSize(texto, maxWidth);
   doc.text(textoLines, centerX, yTexto, { align: "center" });
@@ -221,10 +280,31 @@ const imprimirReconocimiento = async (tabla: string, r: Registro) => {
     const [nuevos, setNuevos] = useState<Registro[]>([]);
     const [filtros, setFiltros] = useState<Record<string, string>>({});
     const [refresh, setRefresh] = useState(0);
+    const [ordenPromedios, setOrdenPromedios] = useState<"none" | "desc">("none");
+
+    const showResultadoReconocimiento = tipo === 'carteles' || tipo === 'participantes_cartel' || tipo === 'equipos' || tipo === 'participantes' || tipo === 'alumno_equipo' || tipo === 'equiposmicro';
 
 
     useEffect(() => setLocalRows(rows || []), [rows]);
     const headers = localRows[0] ? Object.keys(localRows[0]) : [];
+
+    const getPromedio = (r: Registro) => {
+      if (tipo === 'equiposmicro') {
+        const rubricas = data.microrubrica || [];
+        const forThis = rubricas.filter(rub => rub.id_equipoMicro === r.id_equipoMicro);
+        const sum = forThis.reduce((s, rub) => s + parseFloat(rub.total || 0), 0);
+        return forThis.length ? (sum / forThis.length).toFixed(1) : '0.0';
+      } else if (tipo === 'alumno_equipo') {
+        const rubricas = data.rubrica_incubadora || [];
+        const forThis = rubricas.filter(rub => rub.id_equipo === r.id_equipo);
+        const totals = forThis.map(rub => {
+          return ['p_nombre_marca', 'p_necesidad_real', 'p_originalidad', 'p_pertinencia', 'p_mercado', 'p_proceso', 'p_finanzas', 'p_ventajas'].reduce((s, field) => s + (parseInt(rub[field] || 0)), 0);
+        });
+        const sum = totals.reduce((s, t) => s + t, 0);
+        return forThis.length ? (sum / forThis.length).toFixed(1) : '0.0';
+      }
+      return parseFloat(r.promedio ?? 0).toFixed(1);
+    };
 
     const filtrados = localRows.filter(r =>
       Object.entries(filtros).every(([col, val]) =>
@@ -234,6 +314,14 @@ const imprimirReconocimiento = async (tabla: string, r: Registro) => {
 
     const manejarCambio = (idx: number, campo: string, valor: string) => {
       setLocalRows(prev => {
+        const copia = [...prev];
+        copia[idx] = { ...copia[idx], [campo]: valor };
+        return copia;
+      });
+    };
+
+    const manejarCambioNuevo = (idx: number, campo: string, valor: string) => {
+      setNuevos(prev => {
         const copia = [...prev];
         copia[idx] = { ...copia[idx], [campo]: valor };
         return copia;
@@ -291,7 +379,27 @@ const imprimirReconocimiento = async (tabla: string, r: Registro) => {
       }
     };
 
-    if (!headers.length) return <p style={{ color: '#000' }}>No hay registros.</p>;
+    const cancelarNuevo = (idx: number) => {
+      setNuevos(prev => prev.filter((_, i) => i !== idx));
+    };
+
+    // === ORDENAR PROMEDIOS ===
+useEffect(() => {
+  if (tipo === "carteles" || tipo === "rubricas_cartel" || tipo === "equipos" || tipo === "participantes" || tipo === "alumno_equipo" || tipo === "equiposmicro") {
+    setLocalRows(prev =>
+      [...prev].sort((a, b) => {
+        const pa = parseFloat(getPromedio(a));
+        const pb = parseFloat(getPromedio(b));
+        return pb - pa; // mayor → menor
+      })
+    );
+  }
+}, [rows, data]);
+
+
+    if (!headers.length && !nuevos.length) return <p style={{ color: '#000' }}>No hay registros.</p>;
+
+    const computedHeaders = (tipo === 'equiposmicro' || tipo === 'alumno_equipo') ? [...headers.filter(h => h !== 'promedio'), 'promedio'] : headers;
 
     return (
       <div
@@ -328,15 +436,15 @@ const imprimirReconocimiento = async (tabla: string, r: Registro) => {
             <thead style={{ background: '#b71c1c', color: '#fff' }}>
               <tr>
                 <th style={{ padding: '10px' }}>Acciones</th>
-                {headers.map(h => (
+                {computedHeaders.map(h => (
                   <th key={h} style={{ padding: '10px' }}>{h}</th>
                 ))}
-                <th style={{ padding: '10px' }}>Resultado</th>
-                <th style={{ padding: '10px' }}>Reconocimiento</th>
+                {showResultadoReconocimiento && <th style={{ padding: '10px' }}>Resultado</th>}
+                {showResultadoReconocimiento && <th style={{ padding: '10px' }}>Reconocimiento</th>}
               </tr>
               <tr style={{ background: '#f5f5f5' }}>
                 <th></th>
-                {headers.map(h => (
+                {computedHeaders.map(h => (
                   <th key={h}>
                     <input
                       type="text"
@@ -353,7 +461,8 @@ const imprimirReconocimiento = async (tabla: string, r: Registro) => {
                     />
                   </th>
                 ))}
-                <th></th><th></th>
+                {showResultadoReconocimiento && <th></th>}
+                {showResultadoReconocimiento && <th></th>}
               </tr>
             </thead>
             <tbody>
@@ -379,25 +488,26 @@ const imprimirReconocimiento = async (tabla: string, r: Registro) => {
                       </>
                     )}
                   </td>
-                  {headers.map(h => (
+                  {computedHeaders.map(h => (
                     <td key={h} style={{ padding: '6px' }}>
-                      {editando[idx] ? (
-                        <input
-                          value={r[h] ?? ''}
-                          onChange={e => manejarCambio(idx, h, e.target.value)}
-                          style={{
-                            width: '100%',
-                            border: '1px solid #ccc',
-                            borderRadius: 4,
-                            color: '#000',
-                          }}
-                        />
-                      ) : (
-                        r[h]
-                      )}
+                      {h === 'promedio' ? getPromedio(r) : 
+                        (editando[idx] ? (
+                          <input
+                            value={r[h] ?? ''}
+                            onChange={e => manejarCambio(idx, h, e.target.value)}
+                            style={{
+                              width: '100%',
+                              border: '1px solid #ccc',
+                              borderRadius: 4,
+                              color: '#000',
+                            }}
+                          />
+                        ) : (
+                          r[h]
+                        ))}
                     </td>
                   ))}
-                  <td>
+                  {showResultadoReconocimiento && <td>
                     {[1, 2, 3].map(n => {
                       const id = r[obtenerCampoID(tipo)] ?? r.id;
                       return (
@@ -421,8 +531,8 @@ const imprimirReconocimiento = async (tabla: string, r: Registro) => {
 
                       );
                     })}
-                  </td>
-                  <td>
+                  </td>}
+                  {showResultadoReconocimiento && <td>
                     <button
                       onClick={() => imprimirReconocimiento(tipo, r)}
                       style={{
@@ -436,7 +546,39 @@ const imprimirReconocimiento = async (tabla: string, r: Registro) => {
                     >
                       🖨️
                     </button>
+                  </td>}
+                </tr>
+              ))}
+              {nuevos.map((r, idx) => (
+                <tr
+                  key={`nuevo-${idx}`}
+                  style={{
+                    borderBottom: '1px solid #ddd',
+                    background: '#f0f8ff',
+                    color: '#000',
+                  }}
+                >
+                  <td style={{ padding: '6px' }}>
+                    <button onClick={() => guardarNuevo(idx)}>💾</button>
+                    <button onClick={() => cancelarNuevo(idx)}>✖</button>
                   </td>
+                  {computedHeaders.map(h => (
+                    <td key={h} style={{ padding: '6px' }}>
+                      {h === 'promedio' ? 'N/A' : 
+                      <input
+                        value={r[h] ?? ''}
+                        onChange={e => manejarCambioNuevo(idx, h, e.target.value)}
+                        style={{
+                          width: '100%',
+                          border: '1px solid #ccc',
+                          borderRadius: 4,
+                          color: '#000',
+                        }}
+                      />}
+                    </td>
+                  ))}
+                  {showResultadoReconocimiento && <td></td>}
+                  {showResultadoReconocimiento && <td></td>}
                 </tr>
               ))}
             </tbody>
@@ -451,7 +593,7 @@ const imprimirReconocimiento = async (tabla: string, r: Registro) => {
     <div
       style={{
         backgroundImage:
-          'url(https://mir-s3-cdn-cf.behance.net/project_modules/1400/e04920100990617.5f15ce182ffd9.jpg)',
+  'url("https://mir-s3-cdn-cf.behance.net/project_modules/1400/e04920100990617.5f15ce182ffd9.jpg")',
         backgroundRepeat: 'no-repeat',
         backgroundPosition: 'center',
         backgroundSize: 'cover',
@@ -522,15 +664,26 @@ const imprimirReconocimiento = async (tabla: string, r: Registro) => {
             }}
           >
             <option value="todos">Mostrar todas</option>
-            <option value="profesores">Profesores responsables</option>
-            <option value="individuales">Alumnos Individuales para competencias</option>
-            <option value="equipo">Alumnos con Equipo para competencias</option>
-            <option value="equipos">Equipos para competencias</option>
             <option value="subadministradores">Subadministradores</option>
             <option value="profesores_designados">Evaluadores de carteles</option>
             <option value="rubricas_cartel">Puntuacion de las Rúbricas</option>
             <option value="participantes_cartel">Participantes del Cartel</option>
             <option value="carteles">Carteles registrados </option>
+            <option value="equipos">Equipos</option>
+            <option value="maestros_login">Maestros Login</option>
+            <option value="profesores_acompanantes">Profesores Acompanantes</option>
+            <option value="categorias_competencia">Categorias Competencia</option>
+            <option value="participantes">Participantes</option>
+            <option value="podio_design">Podio Design</option>
+            <option value="visitas">Visitas</option>
+            <option value="profesores_jurado">Profesores Jurado Incubadora</option>
+             <option value="rubrica_incubadora">Rubrica Incubadora</option>
+            <option value="alumno_equipo">Alumnos Equipo Incubadora</option>
+            <option value="profesoresmicro">Profesores Evaluadores Micro</option>
+            <option value="equiposmicro">Equipos Micro</option>
+            <option value="microrubrica">Rubrica Micro</option>
+           
+         
           </select>
 
           {[
