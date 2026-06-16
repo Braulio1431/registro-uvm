@@ -23,10 +23,12 @@ export default function Login() {
 
     const data = await res.json();
 
-    if (res.ok) {
+  if (res.ok) {
       if (data.tipo === 'admin') {
+        sessionStorage.setItem('sesion', 'admin');
         router.push('/admin');
       } else if (data.tipo === 'subadmin') {
+        sessionStorage.setItem('sesion', 'subadmin');
         router.push('/subadmin');
       }
     } else {

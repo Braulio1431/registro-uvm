@@ -13,6 +13,14 @@ export default function AdminPanel() {
   const lugaresRef = React.useRef<{ [tabla: string]: { [id: string]: number } }>({});
   const router = useRouter();
 
+  // 🔒 Protección de ruta
+  useEffect(() => {
+    const sesion = sessionStorage.getItem('sesion');
+    if (sesion !== 'admin') {
+      router.replace('/');
+    }
+  }, []);
+
   const obtenerCampoID = (tabla: string) => {
     const map: Record<string, string> = {
       subadministradores: 'id',
@@ -33,8 +41,6 @@ export default function AdminPanel() {
       microrubrica: 'id_microRubrica',
       equiposmicro: 'id_equipoMicro',
       profesoresmicro: 'id_profMicro',
-      
-      
     };
     return map[tabla.toLowerCase()] || 'id';
   };
@@ -98,180 +104,182 @@ export default function AdminPanel() {
     a.click();
   };
 
-  const cerrarSesion = () => router.push('/');
-
- const asignarLugar = (tabla: string, id: string | number, lugar: number) => {
-  if (!lugaresRef.current[tabla]) lugaresRef.current[tabla] = {};
-  lugaresRef.current[tabla][String(id)] = lugar;
-};
-
-
-const imprimirReconocimiento = async (tabla: string, r: Registro) => {
-  const idCampo = obtenerCampoID(tabla);
-  const idVal = r[idCampo] ?? r.id;
-  const lugar = lugaresRef.current[tabla]?.[String(idVal)];
-  if (!lugar) return alert("Selecciona un lugar antes de imprimir");
-
-  const limpiar = (...v: any[]) =>
-    v.filter(x => x && x !== "null" && x !== "undefined" && x !== "").join(" ").trim();
-
-  let tituloCartel = "";
-  let programa = "";
-  let categoria = "";
-  let nombres = "";
-  let nombreMostrar = "";
-  let texto = "";
-
-  // ================= CARTELES Y PARTICIPANTES_CARTEL =================
-  if (tabla === "participantes_cartel") {
-    const cartel = (data.carteles || []).find(c => c.id_cartel === r.id_cartel);
-
-    if (cartel) {
-      tituloCartel = cartel.titulo || "";
-    }
-
-    programa = r.programa?.trim() || "";
-
-    nombres = [
-      limpiar(r.nombre_representante, r.apellido_paterno_representante, r.apellido_materno_representante),
-      limpiar(r.integrante1_nombre, r.integrante1_apellido_paterno, r.integrante1_apellido_materno),
-      limpiar(r.integrante2_nombre, r.integrante2_apellido_paterno, r.integrante2_apellido_materno),
-      limpiar(r.integrante3_nombre, r.integrante3_apellido_paterno, r.integrante3_apellido_materno),
-      limpiar(r.integrante4_nombre, r.integrante4_apellido_paterno, r.integrante4_apellido_materno),
-    ]
-      .filter(Boolean)
-      .join(", ");
-
-    nombreMostrar = nombres || tituloCartel;
-
-    texto = `Por su destacada participación en la 19° edición del Foro de Investigación C1-25, obteniendo el ${lugar}° Lugar de la vertical de ${programa}.`;
-  }
-
-  if (tabla === "carteles") {
-    tituloCartel = r.titulo || "";
-    programa = r.programa?.trim() || "";
-
-    const participantes = (data.participantes_cartel || []).filter(
-      p => p.id_cartel === r.id_cartel
-    );
-
-    if (participantes.length) {
-      nombres = participantes
-        .map(p => {
-          const items = [
-            limpiar(p.nombre_representante, p.apellido_paterno_representante, p.apellido_materno_representante),
-            limpiar(p.integrante1_nombre, p.integrante1_apellido_paterno, p.integrante1_apellido_materno),
-            limpiar(p.integrante2_nombre, p.integrante2_apellido_paterno, p.integrante2_apellido_materno),
-            limpiar(p.integrante3_nombre, p.integrante3_apellido_paterno, p.integrante3_apellido_materno),
-            limpiar(p.integrante4_nombre, p.integrante4_apellido_paterno, p.integrante4_apellido_materno),
-          ].filter(Boolean);
-          return items.join(", ");
-        })
-        .join(" — ");
-    }
-
-    nombreMostrar = nombres || tituloCartel;
-
-    texto = `Por su destacada participación en la 19° edición del Foro de Investigación C1-25, obteniendo el ${lugar}° Lugar de la vertical de ${programa}.`;
-  }
-
-  // ================= EQUIPOS =================
-  if (tabla === "equipos") {
-    nombreMostrar = r.nombre_equipo || "";
-
-    categoria = r.nombre_categoria || "";
-
-    texto = `Por su destacada participación en la 5° edición del Foro nacional de ingenierías, obteniendo el ${lugar}° Lugar de la categoria de ${categoria}.`;
-  }
-
-  // ================= PARTICIPANTES =================
-  if (tabla === "participantes") {
-    nombres = limpiar(r.nombre, r.apellido_paterno, r.apellido_materno);
-
-    nombreMostrar = nombres;
-
-    categoria = r.nombre_categoria || "";
-
-    texto = `Por su destacada participación en la 5° edición del Foro nacional de ingenierías, obteniendo el ${lugar}° Lugar de la categoria de ${categoria}.`;
-  }
-
-  // ================= ALUMNO_EQUIPO =================
-  if (tabla === "alumno_equipo") {
-    nombreMostrar = r.nombre_proyecto || "";
-
-    const lugaresTexto = ["", "PRIMER", "SEGUNDO", "TERCER"];
-    texto = `Por obtener el ${lugaresTexto[lugar]} LUGAR del Programa "Incubadoras de Emprendimiento del Instituto de la Juventud del Municipio de Puebla - 2025".`;
-  }
-
-  // ================= EQUIPOSMICRO =================
-  if (tabla === "equiposmicro") {
-    nombreMostrar = r.nombre_proyecto || "";
-
-    const lugaresTexto = ["", "PRIMER", "SEGUNDO", "TERCER"];
-    texto = `Por obtener el ${lugaresTexto[lugar]} LUGAR en la Exposición de Carteles de Microeconomía para el "19vo Foro de investigación UVM".`;
-  }
-
-  // ================= IMAGEN =================
-  const loadImg = async (src: string) => {
-    const res = await fetch(src);
-    const blob = await res.blob();
-    return new Promise(resolve => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result);
-      reader.readAsDataURL(blob);
-    });
+  const cerrarSesion = () => {
+    sessionStorage.removeItem('sesion');
+    router.push('/');
   };
 
-  const fondo = await loadImg("/ReconocimientoUVMmicro.jpg");
+  const asignarLugar = (tabla: string, id: string | number, lugar: number) => {
+    if (!lugaresRef.current[tabla]) lugaresRef.current[tabla] = {};
+    lugaresRef.current[tabla][String(id)] = lugar;
+  };
 
-  const img = new Image();
-  img.src = fondo as string;
-  await new Promise(r => (img.onload = r));
+  const imprimirReconocimiento = async (tabla: string, r: Registro) => {
+    const idCampo = obtenerCampoID(tabla);
+    const idVal = r[idCampo] ?? r.id;
+    const lugar = lugaresRef.current[tabla]?.[String(idVal)];
+    if (!lugar) return alert("Selecciona un lugar antes de imprimir");
 
-  const imgW = img.width;
-  const imgH = img.height;
-  const centerX = imgW * 0.57;
+    const limpiar = (...v: any[]) =>
+      v.filter(x => x && x !== "null" && x !== "undefined" && x !== "").join(" ").trim();
 
-  const doc = new jsPDF({
-    orientation: imgW > imgH ? "landscape" : "portrait",
-    unit: "px",
-    format: [imgW, imgH]
-  });
+    let tituloCartel = "";
+    let programa = "";
+    let categoria = "";
+    let nombres = "";
+    let nombreMostrar = "";
+    let texto = "";
 
-  doc.addImage(fondo as string, "JPEG", 0, 0, imgW, imgH);
+    // ================= CARTELES Y PARTICIPANTES_CARTEL =================
+    if (tabla === "participantes_cartel") {
+      const cartel = (data.carteles || []).find(c => c.id_cartel === r.id_cartel);
 
-  // ================= COORDENADAS =================
-  const yNombre = imgH * 0.460;
-  const yTexto = imgH * 0.54;
+      if (cartel) {
+        tituloCartel = cartel.titulo || "";
+      }
 
-  // ================= NOMBRE =================
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(110, 110, 110); 
+      programa = r.programa?.trim() || "";
 
-  let fs = 150; // más grande
-  const maxWidth = imgW * 0.68;
+      nombres = [
+        limpiar(r.nombre_representante, r.apellido_paterno_representante, r.apellido_materno_representante),
+        limpiar(r.integrante1_nombre, r.integrante1_apellido_paterno, r.integrante1_apellido_materno),
+        limpiar(r.integrante2_nombre, r.integrante2_apellido_paterno, r.integrante2_apellido_materno),
+        limpiar(r.integrante3_nombre, r.integrante3_apellido_paterno, r.integrante3_apellido_materno),
+        limpiar(r.integrante4_nombre, r.integrante4_apellido_paterno, r.integrante4_apellido_materno),
+      ]
+        .filter(Boolean)
+        .join(", ");
 
-  doc.setFontSize(fs);
-  while (fs > 32 && doc.getTextWidth(nombreMostrar) > maxWidth) {
-    fs -= 2;
+      nombreMostrar = nombres || tituloCartel;
+
+      texto = `Por su destacada participación en la 19° edición del Foro de Investigación C1-25, obteniendo el ${lugar}° Lugar de la vertical de ${programa}.`;
+    }
+
+    if (tabla === "carteles") {
+      tituloCartel = r.titulo || "";
+      programa = r.programa?.trim() || "";
+
+      const participantes = (data.participantes_cartel || []).filter(
+        p => p.id_cartel === r.id_cartel
+      );
+
+      if (participantes.length) {
+        nombres = participantes
+          .map(p => {
+            const items = [
+              limpiar(p.nombre_representante, p.apellido_paterno_representante, p.apellido_materno_representante),
+              limpiar(p.integrante1_nombre, p.integrante1_apellido_paterno, p.integrante1_apellido_materno),
+              limpiar(p.integrante2_nombre, p.integrante2_apellido_paterno, p.integrante2_apellido_materno),
+              limpiar(p.integrante3_nombre, p.integrante3_apellido_paterno, p.integrante3_apellido_materno),
+              limpiar(p.integrante4_nombre, p.integrante4_apellido_paterno, p.integrante4_apellido_materno),
+            ].filter(Boolean);
+            return items.join(", ");
+          })
+          .join(" — ");
+      }
+
+      nombreMostrar = nombres || tituloCartel;
+
+      texto = `Por su destacada participación en la 19° edición del Foro de Investigación C1-25, obteniendo el ${lugar}° Lugar de la vertical de ${programa}.`;
+    }
+
+    // ================= EQUIPOS =================
+    if (tabla === "equipos") {
+      nombreMostrar = r.nombre_equipo || "";
+
+      categoria = r.nombre_categoria || "";
+
+      texto = `Por su destacada participación en la 5° edición del Foro nacional de ingenierías, obteniendo el ${lugar}° Lugar de la categoria de ${categoria}.`;
+    }
+
+    // ================= PARTICIPANTES =================
+    if (tabla === "participantes") {
+      nombres = limpiar(r.nombre, r.apellido_paterno, r.apellido_materno);
+
+      nombreMostrar = nombres;
+
+      categoria = r.nombre_categoria || "";
+
+      texto = `Por su destacada participación en la 5° edición del Foro nacional de ingenierías, obteniendo el ${lugar}° Lugar de la categoria de ${categoria}.`;
+    }
+
+    // ================= ALUMNO_EQUIPO =================
+    if (tabla === "alumno_equipo") {
+      nombreMostrar = r.nombre_proyecto || "";
+
+      const lugaresTexto = ["", "PRIMER", "SEGUNDO", "TERCER"];
+      texto = `Por obtener el ${lugaresTexto[lugar]} LUGAR del Programa "Incubadoras de Emprendimiento del Instituto de la Juventud del Municipio de Puebla - 2025".`;
+    }
+
+    // ================= EQUIPOSMICRO =================
+    if (tabla === "equiposmicro") {
+      nombreMostrar = r.nombre_proyecto || "";
+
+      const lugaresTexto = ["", "PRIMER", "SEGUNDO", "TERCER"];
+      texto = `Por obtener el ${lugaresTexto[lugar]} LUGAR en la Exposición de Carteles de Microeconomía para el "19vo Foro de investigación UVM".`;
+    }
+
+    // ================= IMAGEN =================
+    const loadImg = async (src: string) => {
+      const res = await fetch(src);
+      const blob = await res.blob();
+      return new Promise(resolve => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.readAsDataURL(blob);
+      });
+    };
+
+    const fondo = await loadImg("/ReconocimientoUVMmicro.jpg");
+
+    const img = new Image();
+    img.src = fondo as string;
+    await new Promise(r => (img.onload = r));
+
+    const imgW = img.width;
+    const imgH = img.height;
+    const centerX = imgW * 0.57;
+
+    const doc = new jsPDF({
+      orientation: imgW > imgH ? "landscape" : "portrait",
+      unit: "px",
+      format: [imgW, imgH]
+    });
+
+    doc.addImage(fondo as string, "JPEG", 0, 0, imgW, imgH);
+
+    // ================= COORDENADAS =================
+    const yNombre = imgH * 0.460;
+    const yTexto = imgH * 0.54;
+
+    // ================= NOMBRE =================
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(110, 110, 110); 
+
+    let fs = 150; // más grande
+    const maxWidth = imgW * 0.68;
+
     doc.setFontSize(fs);
-  }
+    while (fs > 32 && doc.getTextWidth(nombreMostrar) > maxWidth) {
+      fs -= 2;
+      doc.setFontSize(fs);
+    }
 
-  const nameLines = doc.splitTextToSize(nombreMostrar, maxWidth);
-  doc.text(nameLines, centerX, yNombre, { align: "center" });
+    const nameLines = doc.splitTextToSize(nombreMostrar, maxWidth);
+    doc.text(nameLines, centerX, yNombre, { align: "center" });
 
-  // ================= TEXTO FINAL =================
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(90); 
-  doc.setTextColor(90, 90, 90);
+    // ================= TEXTO FINAL =================
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(90); 
+    doc.setTextColor(90, 90, 90);
 
-  const textoLines = doc.splitTextToSize(texto, maxWidth);
-  doc.text(textoLines, centerX, yTexto, { align: "center" });
+    const textoLines = doc.splitTextToSize(texto, maxWidth);
+    doc.text(textoLines, centerX, yTexto, { align: "center" });
 
-  // ================= GUARDAR =================
-  const safeName = nombreMostrar.replace(/[^\w]/g, "_");
-  doc.save(`Reconocimiento_${safeName}.pdf`);
-};
+    // ================= GUARDAR =================
+    const safeName = nombreMostrar.replace(/[^\w]/g, "_");
+    doc.save(`Reconocimiento_${safeName}.pdf`);
+  };
 
   // === COMPONENTE TABLA ===
   const TableRenderer = ({ tipo, rows }: { tipo: string; rows: Registro[] }) => {
@@ -284,8 +292,8 @@ const imprimirReconocimiento = async (tabla: string, r: Registro) => {
 
     const showResultadoReconocimiento = tipo === 'carteles' || tipo === 'participantes_cartel' || tipo === 'equipos' || tipo === 'participantes' || tipo === 'alumno_equipo' || tipo === 'equiposmicro';
 
-
     useEffect(() => setLocalRows(rows || []), [rows]);
+
     const headers = localRows[0] ? Object.keys(localRows[0]) : [];
 
     const getPromedio = (r: Registro) => {
@@ -384,18 +392,17 @@ const imprimirReconocimiento = async (tabla: string, r: Registro) => {
     };
 
     // === ORDENAR PROMEDIOS ===
-useEffect(() => {
-  if (tipo === "carteles" || tipo === "rubricas_cartel" || tipo === "equipos" || tipo === "participantes" || tipo === "alumno_equipo" || tipo === "equiposmicro") {
-    setLocalRows(prev =>
-      [...prev].sort((a, b) => {
-        const pa = parseFloat(getPromedio(a));
-        const pb = parseFloat(getPromedio(b));
-        return pb - pa; // mayor → menor
-      })
-    );
-  }
-}, [rows, data]);
-
+    useEffect(() => {
+      if (tipo === "carteles" || tipo === "rubricas_cartel" || tipo === "equipos" || tipo === "participantes" || tipo === "alumno_equipo" || tipo === "equiposmicro") {
+        setLocalRows(prev =>
+          [...prev].sort((a, b) => {
+            const pa = parseFloat(getPromedio(a));
+            const pb = parseFloat(getPromedio(b));
+            return pb - pa; // mayor → menor
+          })
+        );
+      }
+    }, [rows, data]);
 
     if (!headers.length && !nuevos.length) return <p style={{ color: '#000' }}>No hay registros.</p>;
 
@@ -511,24 +518,23 @@ useEffect(() => {
                     {[1, 2, 3].map(n => {
                       const id = r[obtenerCampoID(tipo)] ?? r.id;
                       return (
-                       <button
+                        <button
                           key={n}
                           onClick={() => {
                             asignarLugar(tipo, id, n);
                             setRefresh(prev => prev + 1);
-                             }}
+                          }}
                           style={{
-                             margin: 2,
-                             background: lugaresRef.current[tipo]?.[String(id)] === n ? '#b71c1c' : 'transparent',
+                            margin: 2,
+                            background: lugaresRef.current[tipo]?.[String(id)] === n ? '#b71c1c' : 'transparent',
                             color: lugaresRef.current[tipo]?.[String(id)] === n ? 'white' : '#b71c1c',
                             border: '1px solid #b71c1c',
                             borderRadius: 4,
                             cursor: 'pointer',
-                            }}
+                          }}
                         >
-                      {n}
-                  </button>
-
+                          {n}
+                        </button>
                       );
                     })}
                   </td>}
@@ -593,7 +599,7 @@ useEffect(() => {
     <div
       style={{
         backgroundImage:
-  'url("https://mir-s3-cdn-cf.behance.net/project_modules/1400/e04920100990617.5f15ce182ffd9.jpg")',
+          'url("https://mir-s3-cdn-cf.behance.net/project_modules/1400/e04920100990617.5f15ce182ffd9.jpg")',
         backgroundRepeat: 'no-repeat',
         backgroundPosition: 'center',
         backgroundSize: 'cover',
@@ -677,13 +683,11 @@ useEffect(() => {
             <option value="podio_design">Podio Design</option>
             <option value="visitas">Visitas</option>
             <option value="profesores_jurado">Profesores Jurado Incubadora</option>
-             <option value="rubrica_incubadora">Rubrica Incubadora</option>
+            <option value="rubrica_incubadora">Rubrica Incubadora</option>
             <option value="alumno_equipo">Alumnos Equipo Incubadora</option>
             <option value="profesoresmicro">Profesores Evaluadores Micro</option>
             <option value="equiposmicro">Equipos Micro</option>
             <option value="microrubrica">Rubrica Micro</option>
-           
-         
           </select>
 
           {[
