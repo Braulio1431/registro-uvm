@@ -2,10 +2,34 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 
 // ======================================================
-// GET → Obtener lista de carteles
+// GET → Obtener lista de carteles O uno por clave_cartel
 // ======================================================
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const { searchParams } = new URL(request.url);
+    const clave_cartel = searchParams.get('clave_cartel');
+
+    // Si viene clave_cartel, devolver solo ese cartel
+    if (clave_cartel) {
+      const [rows]: any = await db.query(
+        `SELECT id_cartel, clave_cartel, titulo AS titulo_cartel, nivel_de_madurez
+         FROM carteles
+         WHERE clave_cartel = ?
+         LIMIT 1`,
+        [clave_cartel]
+      );
+
+      if (!rows.length) {
+        return NextResponse.json(
+          { error: 'Cartel no encontrado' },
+          { status: 404 }
+        );
+      }
+
+      return NextResponse.json(rows[0]);
+    }
+
+    // Sin parámetro → devolver lista completa (comportamiento original)
     const [rows]: any = await db.query(`
       SELECT 
         id_cartel, 

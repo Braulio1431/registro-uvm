@@ -8,94 +8,108 @@ export async function POST(request: Request) {
     const {
       matricula_profesor,
       clave_cartel,
-      fundamentacion_teorica,
-      viabilidad_proyecto,
-      presentacion_actitud,
-      defensa_cartel,
-      resumen,
-      introduccion,
-      planteamiento_problema,
-      justificacion,
-      objetivos,
-      hipotesis,
+      nivel_madurez,
+      // Nivel 1
+      problema_investigacion,
+      objetivos_justificacion,
+      marco_teorico,
+      // Nivel 2
       metodologia,
-      resultados_analisis,
-      conclusiones,
-      coherencia_referencias,
+      resultados,
+      aplicacion_conocimiento,
+      // Nivel 3
+      analisis_interpretacion,
+      problematica_real,
+      impacto_transferencia,
+      originalidad_innovacion,
+      // Competencias genéricas (todos los niveles)
+      presentacion_visual,
+      comunicacion_oral,
     } = body;
 
-    if (!matricula_profesor || !clave_cartel) {
+    if (!matricula_profesor || !clave_cartel || !nivel_madurez) {
       return NextResponse.json(
-        { error: "Faltan la matrícula o la clave del cartel." },
+        { error: "Faltan datos requeridos." },
         { status: 400 }
       );
     }
 
-    // Calcular promedio
+    // Construir array de valores según nivel de madurez
+    // Nivel 1: criterios 1,2,3 + genéricas (11,12)
+    // Nivel 2: criterios 1-6 + genéricas
+    // Nivel 3: criterios 1-10 + genéricas
+    const nivel = Number(nivel_madurez);
 
-const valores = [
-  fundamentacion_teorica,
-  viabilidad_proyecto,
-  presentacion_actitud,
-  defensa_cartel,
-  resumen,
-  introduccion,
-  planteamiento_problema,
-  justificacion,
-  objetivos,
-  hipotesis,
-  metodologia,
-  resultados_analisis,
-  conclusiones,
-  coherencia_referencias,
-].map((v) => Number(v));
+    const valoresBase = [
+      problema_investigacion,
+      objetivos_justificacion,
+      marco_teorico,
+      presentacion_visual,
+      comunicacion_oral,
+    ];
 
-// 🔹 Calcular promedio de manera segura
-const totalValidos = valores.filter((v) => !isNaN(v));
-const promedio =
-  totalValidos.length > 0
-    ? totalValidos.reduce((a, b) => a + b, 0) / totalValidos.length
-    : 0;
+    const valoresNivel2 = [
+      ...valoresBase,
+      metodologia,
+      resultados,
+      aplicacion_conocimiento,
+    ];
 
+    const valoresNivel3 = [
+      ...valoresNivel2,
+      analisis_interpretacion,
+      problematica_real,
+      impacto_transferencia,
+      originalidad_innovacion,
+    ];
 
-    // 🧩 INSERT corregido — devuelve el resultado real con insertId
+    const valores =
+      nivel === 1 ? valoresBase :
+      nivel === 2 ? valoresNivel2 :
+      valoresNivel3;
+
+    const valoresValidos = valores
+      .map((v) => Number(v))
+      .filter((v) => !isNaN(v) && v > 0);
+
+    const promedio =
+      valoresValidos.length > 0
+        ? valoresValidos.reduce((a, b) => a + b, 0) / valoresValidos.length
+        : 0;
+
     const [resultado]: any = await db.query(
       `INSERT INTO rubricas_cartel (
         clave_cartel,
         matricula_profesor,
-        fundamentacion_teorica,
-        viabilidad_proyecto,
-        presentacion_actitud,
-        defensa_cartel,
-        resumen,
-        introduccion,
-        planteamiento_problema,
-        justificacion,
-        objetivos,
-        hipotesis,
+        problema_investigacion,
+        objetivos_justificacion,
+        marco_teorico,
         metodologia,
-        resultados_analisis,
-        conclusiones,
-        coherencia_referencias,
+        resultados,
+        aplicacion_conocimiento,
+        analisis_interpretacion,
+        problematica_real,
+        impacto_transferencia,
+        originalidad_innovacion,
+        presentacion_visual,
+        comunicacion_oral,
         promedio
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         clave_cartel,
         matricula_profesor,
-        fundamentacion_teorica,
-        viabilidad_proyecto,
-        presentacion_actitud,
-        defensa_cartel,
-        resumen,
-        introduccion,
-        planteamiento_problema,
-        justificacion,
-        objetivos,
-        hipotesis,
-        metodologia,
-        resultados_analisis,
-        conclusiones,
-        coherencia_referencias,
+        problema_investigacion ?? null,
+        objetivos_justificacion ?? null,
+        marco_teorico ?? null,
+        metodologia ?? null,
+        resultados ?? null,
+        aplicacion_conocimiento ?? null,
+        analisis_interpretacion ?? null,
+        problematica_real ?? null,
+        impacto_transferencia ?? null,
+        originalidad_innovacion ?? null,
+        presentacion_visual ?? null,
+        comunicacion_oral ?? null,
         promedio.toFixed(2),
       ]
     );

@@ -1,48 +1,200 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+
+// Opciones por criterio: [label, valor]
+type Opcion = { label: string; valor: number };
+
+type Criterio = {
+  name: string;
+  label: string;
+  opciones: Opcion[];
+};
+
+// Criterios Nivel 1
+const criteriosN1: Criterio[] = [
+  {
+    name: 'problema_investigacion',
+    label: '1. Problema de investigación (5%)',
+    opciones: [
+      { label: 'Problema general, poco delimitado', valor: 1 },
+      { label: 'Problema claro y contextualizado', valor: 2 },
+      { label: 'Problema específico con implicaciones prácticas', valor: 3 },
+    ],
+  },
+  {
+    name: 'objetivos_justificacion',
+    label: '2. Objetivos y justificación (10%)',
+    opciones: [
+      { label: 'Objetivo general sin desarrollo', valor: 2 },
+      { label: 'Objetivos claros y justificados', valor: 4 },
+      { label: 'Objetivos estratégicos con enfoque de impacto', valor: 6 },
+    ],
+  },
+  {
+    name: 'marco_teorico',
+    label: '3. Marco teórico, citas y referencias (10%)',
+    opciones: [
+      { label: 'Uso básico de fuentes', valor: 2 },
+      { label: 'Integración adecuada de literatura', valor: 4 },
+      { label: 'Análisis crítico y aportes originales', valor: 6 },
+    ],
+  },
+];
+
+// Criterios Nivel 2
+const criteriosN2: Criterio[] = [
+  {
+    name: 'metodologia',
+    label: '4. Metodología (15%)',
+    opciones: [
+      { label: 'Ausente o poco clara', valor: 1 },
+      { label: 'Diseño metodológico coherente', valor: 2 },
+      { label: 'Metodología validada y aplicada', valor: 3 },
+    ],
+  },
+  {
+    name: 'resultados',
+    label: '5. Resultados (15%)',
+    opciones: [
+      { label: 'Hipotéticos o ausentes', valor: 3 },
+      { label: 'Resultados preliminares', valor: 6 },
+      { label: 'Resultados completos y validados', valor: 9 },
+    ],
+  },
+  {
+    name: 'aplicacion_conocimiento',
+    label: '6. Aplicación del conocimiento (5%)',
+    opciones: [
+      { label: 'No se evidencia uso de conocimientos previos o adquiridos', valor: 1 },
+      { label: 'Se aplican conocimientos básicos, pero sin profundidad ni integración', valor: 2 },
+      { label: 'Se demuestra aplicación sólida, pertinente e integrada del conocimiento', valor: 3 },
+    ],
+  },
+];
+
+// Criterios Nivel 3
+const criteriosN3: Criterio[] = [
+  {
+    name: 'analisis_interpretacion',
+    label: '7. Análisis e interpretación (15%)',
+    opciones: [
+      { label: 'Descriptivo o superficial', valor: 3 },
+      { label: 'Interpretación con base en datos', valor: 6 },
+      { label: 'Análisis crítico con discusión profunda', valor: 9 },
+    ],
+  },
+  {
+    name: 'problematica_real',
+    label: '8. Resuelve una problemática real y vigente (5%)',
+    opciones: [
+      { label: 'No se identifica una problemática clara', valor: 1 },
+      { label: 'Se identifica una problemática, pero no se justifica su vigencia o relevancia', valor: 2 },
+      { label: 'Se aborda una problemática actual, bien definida y con justificación clara', valor: 3 },
+    ],
+  },
+  {
+    name: 'impacto_transferencia',
+    label: '9. Impacto y transferencia (10%)',
+    opciones: [
+      { label: 'No se contempla', valor: 2 },
+      { label: 'Se menciona aplicación potencial', valor: 4 },
+      { label: 'Propuesta concreta de transferencia, producto o publicación', valor: 6 },
+    ],
+  },
+  {
+    name: 'originalidad_innovacion',
+    label: '10. Originalidad e innovación (10%)',
+    opciones: [
+      { label: 'Idea común o poco desarrollada', valor: 2 },
+      { label: 'Elementos novedosos', valor: 4 },
+      { label: 'Propuesta innovadora con valor agregado', valor: 6 },
+    ],
+  },
+];
+
+// Competencias genéricas (todos los niveles)
+const criteriosGenericas: Criterio[] = [
+  {
+    name: 'presentacion_visual',
+    label: '11. Presentación visual (5%)',
+    opciones: [
+      { label: 'Desorganizada o poco clara', valor: 1 },
+      { label: 'Clara y funcional', valor: 2 },
+      { label: 'Profesional, atractiva y comunicativa', valor: 3 },
+    ],
+  },
+  {
+    name: 'comunicacion_oral',
+    label: '12. Comunicación oral y dominio (5%)',
+    opciones: [
+      { label: 'Dificultad para explicar el proyecto', valor: 1 },
+      { label: 'Explicación clara y segura', valor: 2 },
+      { label: 'Presentación convincente y con dominio del tema', valor: 3 },
+    ],
+  },
+];
+
+type Respuestas = Record<string, string>;
 
 export default function RubricaPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // 🔹 Obtenemos clave_cartel y matricula_profesor desde la URL
   const clave_cartel = searchParams.get('clave_cartel');
   const matricula_profesor = searchParams.get('matricula_profesor');
 
-  const [respuestas, setRespuestas] = useState({
-    fundamentacion_teorica: '',
-    viabilidad_proyecto: '',
-    presentacion_actitud: '',
-    defensa_cartel: '',
-    resumen: '',
-    introduccion: '',
-    planteamiento_problema: '',
-    justificacion: '',
-    objetivos: '',
-    hipotesis: '',
-    metodologia: '',
-    resultados_analisis: '',
-    conclusiones: '',
-    coherencia_referencias: '',
-  });
+  const [nivelMadurez, setNivelMadurez] = useState<number | null>(null);
+  const [respuestas, setRespuestas] = useState<Respuestas>({});
+  const [cargando, setCargando] = useState(true);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setRespuestas({ ...respuestas, [e.target.name]: e.target.value });
+  // Obtener el nivel de madurez del cartel desde la BD
+  useEffect(() => {
+    if (!clave_cartel) return;
+    fetch(`/api/cartel?clave_cartel=${clave_cartel}`)
+      .then((r) => r.json())
+      .then((data) => {
+        setNivelMadurez(Number(data.nivel_de_madurez));
+        setCargando(false);
+      })
+      .catch(() => {
+        alert('No se pudo obtener el nivel de madurez del cartel.');
+        setCargando(false);
+      });
+  }, [clave_cartel]);
+
+  // Construir lista de criterios según nivel
+  const criteriosActivos: Criterio[] = (() => {
+    if (!nivelMadurez) return [];
+    const base = [...criteriosN1];
+    if (nivelMadurez >= 2) base.push(...criteriosN2);
+    if (nivelMadurez >= 3) base.push(...criteriosN3);
+    base.push(...criteriosGenericas);
+    return base;
+  })();
+
+  const handleChange = (name: string, valor: string) => {
+    setRespuestas((prev) => ({ ...prev, [name]: valor }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!clave_cartel || !matricula_profesor) {
-      alert('Error: faltan datos del profesor o cartel.');
+    if (!clave_cartel || !matricula_profesor || !nivelMadurez) {
+      alert('Error: faltan datos del profesor, cartel o nivel de madurez.');
       return;
     }
 
-    const valores = Object.values(respuestas).map(Number);
-    const promedio = valores.reduce((a, b) => a + b, 0) / valores.length;
+    // Validar que todos los criterios activos tienen respuesta
+    const sinResponder = criteriosActivos.filter(
+      (c) => !respuestas[c.name]
+    );
+    if (sinResponder.length > 0) {
+      alert('Por favor responde todos los criterios antes de enviar.');
+      return;
+    }
 
     try {
       const res = await fetch('/api/rubrica', {
@@ -51,8 +203,8 @@ export default function RubricaPage() {
         body: JSON.stringify({
           clave_cartel,
           matricula_profesor,
+          nivel_madurez: nivelMadurez,
           ...respuestas,
-          promedio,
         }),
       });
 
@@ -67,31 +219,12 @@ export default function RubricaPage() {
     }
   };
 
-  const preguntas = [
-    { name: 'fundamentacion_teorica', label: '1. Fundamentación teórica del proyecto. Se observa una excelente argumentación utilizando fuentes de información confiables que reflejan los antecedentes del proyecto y un claro objetivo' },
-    { name: 'viabilidad_proyecto', label: '2. VViabilidad del proyecto (aplicabilidad y beneficio) ' },
-    { name: 'presentacion_actitud', label: '3. Presentación (vestimenta) y actitud de los alumnos. Liderazgo en el desarrollo de ideas ' },
-    { name: 'defensa_cartel', label: '4. Defensa del cartel. Dominio del tema por parte del estudiante' },
-    { name: 'resumen', label: '5. Resumen. En el resumen describe los objetivos del trabajo, la metodología general con los resultados más relevantes. ' },
-    { name: 'introduccion', label: '6. Introducción: Realiza una revisión bibliográfica donde plantea ordenadamente el tema de investigación, su importancia e implicaciones. Incluye las referencia bibliográficas o hemerográficas en el texto.' },
-    { name: 'planteamiento_problema', label: '7. Planteamiento del problema: El planteamiento responde a la pregunta ¿qué voy a investigar? ' },
-    { name: 'justificacion', label: '8. Justificación: Responde a la pregunta ¿por qué voy a investigar? ' },
-    { name: 'objetivos', label: '9. Objetivos: Responden a la pregunta ¿para qué voy a investigar? ' },
-    { name: 'hipotesis', label: '10. Hipótesis: constituye un juicio de posibilidad que expresa la relación causa efecto (si vs entonces) que se pretende verificar. ' },
-    { name: 'metodologia', label: '11. Metodología: Describe el procedimiento experimental de forma que responde a la pregunta ¿Cómo se va a investigar?' },
-    { name: 'resultados_analisis', label: '12. Resultados y análisis de resultados: Recopila y ordena los datos obtenidos presentándolos en párrafos, cuadros o gráficos claramente identificados. Interpreta y analiza los resultados obtenidos comparativamente con la bibliografía consultada -Indica las aplicaciones teóricas.' },
-    { name: 'conclusiones', label: '13. Conclusiones: Redacta con sus propias palabras si se cumplen o no los objetivos en base al análisis de los resultados.' },
-    { name: 'coherencia_referencias', label: '14. Coherencia de las referencias bibliográficas. Incluye todas las referencias citadas en formato APA y tienen relación con el proyecto. ' },
-  ];
-
-  // 🎨 Estilos visuales
+  // Estilos
   const estilos = {
     fondo: {
       position: 'fixed' as const,
-      top: 0,
-      left: 0,
-      width: '100vw',
-      height: '100vh',
+      top: 0, left: 0,
+      width: '100vw', height: '100vh',
       backgroundImage:
         'url(https://mir-s3-cdn-cf.behance.net/project_modules/fs/e04920100990617.5f15ce182ffd9.jpg)',
       backgroundSize: 'cover',
@@ -107,61 +240,64 @@ export default function RubricaPage() {
       backgroundColor: '#ffffff',
       padding: '35px',
       borderRadius: '16px',
-      boxShadow: '0 4px 25px rgba(0, 0, 0, 0.3)',
+      boxShadow: '0 4px 25px rgba(0,0,0,0.3)',
       zIndex: 1,
     },
     titulo: {
       color: '#b30000',
-      fontWeight: 'bold',
+      fontWeight: 'bold' as const,
       textAlign: 'center' as const,
       marginBottom: '25px',
       textTransform: 'uppercase' as const,
     },
+    seccionLabel: {
+      backgroundColor: '#b30000',
+      color: '#fff',
+      fontWeight: 'bold' as const,
+      padding: '6px 14px',
+      borderRadius: '6px',
+      marginBottom: '12px',
+      display: 'inline-block',
+    },
     botonEnviar: {
       backgroundColor: '#b30000',
       color: '#fff',
-      fontWeight: 'bold',
+      fontWeight: 'bold' as const,
       border: 'none',
       padding: '12px',
       borderRadius: '8px',
       width: '100%',
-      transition: '0.3s ease',
       cursor: 'pointer',
     },
   };
 
+  const seccionTitulo = (texto: string) => (
+    <div style={estilos.seccionLabel}>{texto}</div>
+  );
+
+  if (cargando) {
+    return (
+      <>
+        <div style={estilos.fondo} />
+        <div style={estilos.contenedor}>
+          <p style={{ textAlign: 'center' }}>Cargando rúbrica...</p>
+        </div>
+      </>
+    );
+  }
+
   return (
     <>
+      <div style={estilos.fondo} />
 
-      <div style={estilos.fondo}></div>
-
-      <div
-        style={{
-          position: 'fixed',
-          top: '20px',
-          right: '20px',
-          zIndex: 10,
-        }}
-      >
+      {/* Botón volver */}
+      <div style={{ position: 'fixed', top: '20px', right: '20px', zIndex: 10 }}>
         <Link href="/profesor">
           <button
-            className="btn btn-outline-light"
             style={{
-              border: '2px solid #fff',
-              color: '#fff',
-              fontWeight: 'bold',
-              borderRadius: '8px',
-              padding: '8px 16px',
-              backgroundColor: 'transparent',
-              transition: '0.3s ease',
-            }}
-            onMouseEnter={(e) => {
-              (e.target as HTMLButtonElement).style.backgroundColor = '#b30000';
-              (e.target as HTMLButtonElement).style.borderColor = '#b30000';
-            }}
-            onMouseLeave={(e) => {
-              (e.target as HTMLButtonElement).style.backgroundColor = 'transparent';
-              (e.target as HTMLButtonElement).style.borderColor = '#fff';
+              border: '2px solid #fff', color: '#fff', fontWeight: 'bold',
+              borderRadius: '8px', padding: '8px 16px',
+              backgroundColor: 'transparent', cursor: 'pointer',
             }}
           >
             Volver
@@ -169,64 +305,108 @@ export default function RubricaPage() {
         </Link>
       </div>
 
-      {/* 🔴 Contenedor principal */}
       <div style={estilos.contenedor}>
         <h1 style={estilos.titulo}>Rúbrica de Evaluación de Cartel</h1>
 
-        {/* 🔹 Mostrar clave_cartel y matricula_profesor */}
-        <div className="flex flex-col sm:flex-row justify-between gap-4 mb-6 bg-white p-4 border rounded-md">
+        {/* Info cartel */}
+        <div className="flex flex-col sm:flex-row justify-between gap-4 mb-4 bg-white p-4 border rounded-md">
           <div>
             <label className="font-semibold text-gray-700">Clave del cartel:</label>
-            <input
-              type="text"
-              value={clave_cartel || 'No disponible'}
-              readOnly
-              className="ml-2 border rounded-md px-2 py-1 bg-gray-100 text-gray-600"
-            />
+            <input type="text" value={clave_cartel || ''} readOnly
+              className="ml-2 border rounded-md px-2 py-1 bg-gray-100 text-gray-600" />
           </div>
           <div>
             <label className="font-semibold text-gray-700">Matrícula del profesor:</label>
-            <input
-              type="text"
-              value={matricula_profesor || 'No disponible'}
-              readOnly
-              className="ml-2 border rounded-md px-2 py-1 bg-gray-100 text-gray-600"
-            />
+            <input type="text" value={matricula_profesor || ''} readOnly
+              className="ml-2 border rounded-md px-2 py-1 bg-gray-100 text-gray-600" />
+          </div>
+          <div>
+            <label className="font-semibold text-gray-700">Nivel de madurez:</label>
+            <input type="text" value={nivelMadurez ? `Nivel ${nivelMadurez}` : ''} readOnly
+              className="ml-2 border rounded-md px-2 py-1 bg-gray-100 text-gray-600" />
           </div>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {preguntas.map((pregunta) => (
-            <div key={pregunta.name} className="bg-white p-4 border rounded-lg shadow-sm">
-              <label className="font-semibold block mb-2 text-gray-800">{pregunta.label}</label>
-              <div className="flex gap-6 justify-center">
-                {[1, 2, 3, 4, 5].map((num) => (
-                  <label key={num} className="flex items-center gap-2 text-gray-700">
-                    <input
-                      type="radio"
-                      name={pregunta.name}
-                      value={num}
-                      checked={respuestas[pregunta.name as keyof typeof respuestas] === String(num)}
-                      onChange={handleChange}
-                      required
-                    />
-                    {num}
-                  </label>
-                ))}
-              </div>
-            </div>
+
+          {/* Nivel 1 siempre visible */}
+          {seccionTitulo('Nivel 1 — Exploración')}
+          {criteriosN1.map((criterio) => (
+            <CriterioCard key={criterio.name} criterio={criterio}
+              valor={respuestas[criterio.name] || ''}
+              onChange={(v) => handleChange(criterio.name, v)} />
           ))}
 
-          <button
-            type="submit"
-            style={estilos.botonEnviar}
-            onMouseEnter={(e) => ((e.target as HTMLButtonElement).style.backgroundColor = '#7a0000')}
-            onMouseLeave={(e) => ((e.target as HTMLButtonElement).style.backgroundColor = '#b30000')}
-          >
+          {/* Nivel 2 */}
+          {nivelMadurez && nivelMadurez >= 2 && (
+            <>
+              {seccionTitulo('Nivel 2 — Proyecto estructurado')}
+              {criteriosN2.map((criterio) => (
+                <CriterioCard key={criterio.name} criterio={criterio}
+                  valor={respuestas[criterio.name] || ''}
+                  onChange={(v) => handleChange(criterio.name, v)} />
+              ))}
+            </>
+          )}
+
+          {/* Nivel 3 */}
+          {nivelMadurez && nivelMadurez >= 3 && (
+            <>
+              {seccionTitulo('Nivel 3 — Proyecto avanzado')}
+              {criteriosN3.map((criterio) => (
+                <CriterioCard key={criterio.name} criterio={criterio}
+                  valor={respuestas[criterio.name] || ''}
+                  onChange={(v) => handleChange(criterio.name, v)} />
+              ))}
+            </>
+          )}
+
+          {/* Competencias genéricas */}
+          {seccionTitulo('Competencias Genéricas')}
+          {criteriosGenericas.map((criterio) => (
+            <CriterioCard key={criterio.name} criterio={criterio}
+              valor={respuestas[criterio.name] || ''}
+              onChange={(v) => handleChange(criterio.name, v)} />
+          ))}
+
+          <button type="submit" style={estilos.botonEnviar}>
             Enviar evaluación
           </button>
         </form>
       </div>
     </>
+  );
+}
+
+// Componente para cada criterio con sus opciones A/B/C
+function CriterioCard({
+  criterio, valor, onChange,
+}: {
+  criterio: Criterio;
+  valor: string;
+  onChange: (v: string) => void;
+}) {
+  const letras = ['A', 'B', 'C'];
+  return (
+    <div className="bg-white p-4 border rounded-lg shadow-sm">
+      <label className="font-semibold block mb-3 text-gray-800">{criterio.label}</label>
+      <div className="flex flex-col gap-2">
+        {criterio.opciones.map((opcion, i) => (
+          <label key={opcion.valor}
+            className="flex items-center gap-3 cursor-pointer text-gray-700 hover:text-red-700">
+            <input
+              type="radio"
+              name={criterio.name}
+              value={opcion.valor}
+              checked={valor === String(opcion.valor)}
+              onChange={() => onChange(String(opcion.valor))}
+              required
+            />
+            <span className="font-bold text-red-700 w-5">{letras[i]}</span>
+            <span>{opcion.label} <span className="text-gray-400 text-sm">({opcion.valor} pts)</span></span>
+          </label>
+        ))}
+      </div>
+    </div>
   );
 }
