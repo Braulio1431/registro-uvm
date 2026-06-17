@@ -140,7 +140,7 @@ export default function AdminPanel() {
 
       programa = r.programa?.trim() || "";
 
-      nombres = [
+      nombres = [ 
         limpiar(r.nombre_representante, r.apellido_paterno_representante, r.apellido_materno_representante),
         limpiar(r.integrante1_nombre, r.integrante1_apellido_paterno, r.integrante1_apellido_materno),
         limpiar(r.integrante2_nombre, r.integrante2_apellido_paterno, r.integrante2_apellido_materno),
@@ -152,7 +152,8 @@ export default function AdminPanel() {
 
       nombreMostrar = nombres || tituloCartel;
 
-      texto = `Por su destacada participación en la 19° edición del Foro de Investigación C1-25, obteniendo el ${lugar}° Lugar de la vertical de ${programa}.`;
+     const nivelMadurez = (data.carteles || []).find(c => c.id_cartel === r.id_cartel)?.nivel_de_madurez ?? '';
+      texto = `Por su destacada participación en la 20° edición del Foro de Investigación C1-2026, obteniendo el ${lugar}° Lugar de la vertical de ${programa} con Nivel de Madurez ${nivelMadurez}.`;
     }
 
     if (tabla === "carteles") {
@@ -180,7 +181,7 @@ export default function AdminPanel() {
 
       nombreMostrar = nombres || tituloCartel;
 
-      texto = `Por su destacada participación en la 19° edición del Foro de Investigación C1-25, obteniendo el ${lugar}° Lugar de la vertical de ${programa}.`;
+      texto = `Por su destacada participación en la 20° edición del Foro de Investigación C1-2026, obteniendo el ${lugar}° Lugar de la vertical de ${programa} con Nivel de Madurez ${r.nivel_de_madurez ?? ''}.`;
     }
 
     // ================= EQUIPOS =================

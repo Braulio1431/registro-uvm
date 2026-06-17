@@ -69,15 +69,15 @@ export default function HomePage() {
   }, [currentIndex, loadedFull]);
 
   const menu = [
-    { label: 'Competencias', href: '/competencias', icon: Trophy },
+    //{ label: 'Competencias', href: '/competencias', icon: Trophy },
     //{ label: 'Registro de incubadora', href: '/incubadora_alumno', icon: Trophy },
     { label: 'Registro de Carteles', href: '/cartel', icon: BookMarked },
     { label: 'Calificaciones cartel', href: '/profesor', icon: BookMarked },
-    { label: 'Rubricas de ingenieria', href: '/secciones', icon: BookMarked },
+    //{ label: 'Rubricas de ingenieria', href: '/secciones', icon: BookMarked },
     //{ label: 'Rubrica de incubadora', href: '/incubadora_profesor', icon: BookMarked },
     //{ label: 'Rubrica de micro', href: '/profesormicro', icon: BookMarked },
     { label: 'Acceso de Coordinadores', href: '/login', icon: Users },
-    { label: 'Visitas', href: '/alumno', icon: MapPin },
+    //{ label: 'Visitas', href: '/alumno', icon: MapPin },
   ];
 
   // === PRELOADER ===
