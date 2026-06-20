@@ -146,34 +146,15 @@ export default function RubricaPage() {
   const clave_cartel = searchParams.get('clave_cartel');
   const matricula_profesor = searchParams.get('matricula_profesor');
 
-  const [nivelMadurez, setNivelMadurez] = useState<number | null>(null);
   const [respuestas, setRespuestas] = useState<Respuestas>({});
-  const [cargando, setCargando] = useState(true);
 
-  // Obtener el nivel de madurez del cartel desde la BD
-  useEffect(() => {
-    if (!clave_cartel) return;
-    fetch(`/api/cartel?clave_cartel=${clave_cartel}`)
-      .then((r) => r.json())
-      .then((data) => {
-        setNivelMadurez(Number(data.nivel_de_madurez));
-        setCargando(false);
-      })
-      .catch(() => {
-        alert('No se pudo obtener el nivel de madurez del cartel.');
-        setCargando(false);
-      });
-  }, [clave_cartel]);
-
-  // Construir lista de criterios según nivel
-  const criteriosActivos: Criterio[] = (() => {
-    if (!nivelMadurez) return [];
-    const base = [...criteriosN1];
-    if (nivelMadurez >= 2) base.push(...criteriosN2);
-    if (nivelMadurez >= 3) base.push(...criteriosN3);
-    base.push(...criteriosGenericas);
-    return base;
-  })();
+  // Construir lista de criterios (ahora siempre todos)
+  const criteriosActivos: Criterio[] = [
+    ...criteriosN1,
+    ...criteriosN2,
+    ...criteriosN3,
+    ...criteriosGenericas,
+  ];
 
   const handleChange = (name: string, valor: string) => {
     setRespuestas((prev) => ({ ...prev, [name]: valor }));
@@ -182,12 +163,12 @@ export default function RubricaPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!clave_cartel || !matricula_profesor || !nivelMadurez) {
-      alert('Error: faltan datos del profesor, cartel o nivel de madurez.');
+    if (!clave_cartel || !matricula_profesor) {
+      alert('Error: faltan datos del profesor o cartel.');
       return;
     }
 
-    // Validar que todos los criterios activos tienen respuesta
+    // Validar que todos los criterios tienen respuesta
     const sinResponder = criteriosActivos.filter(
       (c) => !respuestas[c.name]
     );
@@ -203,7 +184,6 @@ export default function RubricaPage() {
         body: JSON.stringify({
           clave_cartel,
           matricula_profesor,
-          nivel_madurez: nivelMadurez,
           ...respuestas,
         }),
       });
@@ -275,17 +255,6 @@ export default function RubricaPage() {
     <div style={estilos.seccionLabel}>{texto}</div>
   );
 
-  if (cargando) {
-    return (
-      <>
-        <div style={estilos.fondo} />
-        <div style={estilos.contenedor}>
-          <p style={{ textAlign: 'center' }}>Cargando rúbrica...</p>
-        </div>
-      </>
-    );
-  }
-
   return (
     <>
       <div style={estilos.fondo} />
@@ -320,16 +289,10 @@ export default function RubricaPage() {
             <input type="text" value={matricula_profesor || ''} readOnly
               className="ml-2 border rounded-md px-2 py-1 bg-gray-100 text-gray-600" />
           </div>
-          <div>
-            <label className="font-semibold text-gray-700">Nivel de madurez:</label>
-            <input type="text" value={nivelMadurez ? `Nivel ${nivelMadurez}` : ''} readOnly
-              className="ml-2 border rounded-md px-2 py-1 bg-gray-100 text-gray-600" />
-          </div>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
 
-          {/* Nivel 1 siempre visible */}
           {seccionTitulo('Nivel 1 — Exploración')}
           {criteriosN1.map((criterio) => (
             <CriterioCard key={criterio.name} criterio={criterio}
@@ -337,31 +300,20 @@ export default function RubricaPage() {
               onChange={(v) => handleChange(criterio.name, v)} />
           ))}
 
-          {/* Nivel 2 */}
-          {nivelMadurez && nivelMadurez >= 2 && (
-            <>
-              {seccionTitulo('Nivel 2 — Proyecto estructurado')}
-              {criteriosN2.map((criterio) => (
-                <CriterioCard key={criterio.name} criterio={criterio}
-                  valor={respuestas[criterio.name] || ''}
-                  onChange={(v) => handleChange(criterio.name, v)} />
-              ))}
-            </>
-          )}
+          {seccionTitulo('Nivel 2 — Proyecto estructurado')}
+          {criteriosN2.map((criterio) => (
+            <CriterioCard key={criterio.name} criterio={criterio}
+              valor={respuestas[criterio.name] || ''}
+              onChange={(v) => handleChange(criterio.name, v)} />
+          ))}
 
-          {/* Nivel 3 */}
-          {nivelMadurez && nivelMadurez >= 3 && (
-            <>
-              {seccionTitulo('Nivel 3 — Proyecto avanzado')}
-              {criteriosN3.map((criterio) => (
-                <CriterioCard key={criterio.name} criterio={criterio}
-                  valor={respuestas[criterio.name] || ''}
-                  onChange={(v) => handleChange(criterio.name, v)} />
-              ))}
-            </>
-          )}
+          {seccionTitulo('Nivel 3 — Proyecto avanzado')}
+          {criteriosN3.map((criterio) => (
+            <CriterioCard key={criterio.name} criterio={criterio}
+              valor={respuestas[criterio.name] || ''}
+              onChange={(v) => handleChange(criterio.name, v)} />
+          ))}
 
-          {/* Competencias genéricas */}
           {seccionTitulo('Competencias Genéricas')}
           {criteriosGenericas.map((criterio) => (
             <CriterioCard key={criterio.name} criterio={criterio}
