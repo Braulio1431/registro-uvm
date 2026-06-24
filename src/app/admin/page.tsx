@@ -92,12 +92,22 @@ export default function AdminPanel() {
     const key = filtro;
     const rows = data[key] || [];
     if (!rows.length) return alert('No hay registros para descargar');
+
     const headers = Object.keys(rows[0]);
+
     const csv = [
       headers.join(','),
-      ...rows.map(r => headers.map(h => `"${(r[h] ?? '').toString().replace(/"/g, '""')}"`).join(',')),
-    ].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      ...rows.map(r =>
+        headers.map(h => {
+          const val = r[h] ?? '';
+          return `"${String(val).replace(/"/g, '""')}"`;
+        }).join(',')
+      ),
+    ].join('\r\n');
+
+    // BOM + CSV → Excel abre correctamente con UTF-8
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = `${key}.csv`;
@@ -152,7 +162,7 @@ export default function AdminPanel() {
 
       nombreMostrar = nombres || tituloCartel;
 
-     const nivelMadurez = (data.carteles || []).find(c => c.id_cartel === r.id_cartel)?.nivel_de_madurez ?? '';
+      const nivelMadurez = (data.carteles || []).find(c => c.id_cartel === r.id_cartel)?.nivel_de_madurez ?? '';
       texto = `Por su destacada participación en la 20° edición del Foro de Investigación C1-2026, obteniendo el ${lugar}° Lugar de la vertical de ${programa} con Nivel de Madurez ${nivelMadurez}.`;
     }
 
@@ -168,11 +178,7 @@ export default function AdminPanel() {
         nombres = participantes
           .map(p => {
             const items = [
-              limpiar(p.nombre_representante, p.apellido_paterno_representante, p.apellido_materno_representante),
-              limpiar(p.integrante1_nombre, p.integrante1_apellido_paterno, p.integrante1_apellido_materno),
-              limpiar(p.integrante2_nombre, p.integrante2_apellido_paterno, p.integrante2_apellido_materno),
-              limpiar(p.integrante3_nombre, p.integrante3_apellido_paterno, p.integrante3_apellido_materno),
-              limpiar(p.integrante4_nombre, p.integrante4_apellido_paterno, p.integrante4_apellido_materno),
+              limpiar(p.titulo),
             ].filter(Boolean);
             return items.join(", ");
           })
@@ -231,7 +237,7 @@ export default function AdminPanel() {
       });
     };
 
-    const fondo = await loadImg("/ReconocimientoUVMmicro.jpg");
+    const fondo = await loadImg("/ReconocimietoUVMActual.png");
 
     const img = new Image();
     img.src = fondo as string;
@@ -250,18 +256,18 @@ export default function AdminPanel() {
     doc.addImage(fondo as string, "JPEG", 0, 0, imgW, imgH);
 
     // ================= COORDENADAS =================
-    const yNombre = imgH * 0.460;
+    const yNombre = imgH * 0.425;
     const yTexto = imgH * 0.54;
 
     // ================= NOMBRE =================
     doc.setFont("helvetica", "bold");
     doc.setTextColor(110, 110, 110); 
 
-    let fs = 150; // más grande
+    let fs = 100; // más grande
     const maxWidth = imgW * 0.68;
 
     doc.setFontSize(fs);
-    while (fs > 32 && doc.getTextWidth(nombreMostrar) > maxWidth) {
+    while (fs > 35 && doc.getTextWidth(nombreMostrar) > maxWidth) {
       fs -= 2;
       doc.setFontSize(fs);
     }
@@ -271,7 +277,7 @@ export default function AdminPanel() {
 
     // ================= TEXTO FINAL =================
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(90); 
+    doc.setFontSize(45); 
     doc.setTextColor(90, 90, 90);
 
     const textoLines = doc.splitTextToSize(texto, maxWidth);
